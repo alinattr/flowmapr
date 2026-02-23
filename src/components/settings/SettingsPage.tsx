@@ -1,0 +1,274 @@
+'use client'
+
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
+import { toast } from 'sonner'
+import { AppNavbar } from '@/components/shared/AppNavbar'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
+import { Separator } from '@/components/ui/separator'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip'
+import {
+  Lock,
+  Loader2,
+  Trash2,
+  ArrowUpRight,
+  ExternalLink,
+} from 'lucide-react'
+
+interface SettingsPageProps {
+  email: string
+  fullName: string | null
+  generationsUsed: number
+  monthlyLimit: number
+  plan: string
+}
+
+export function SettingsPage({
+  email,
+  fullName: initialFullName,
+  generationsUsed,
+  monthlyLimit,
+  plan,
+}: SettingsPageProps) {
+  const router = useRouter()
+  const [fullName, setFullName] = useState(initialFullName ?? '')
+  const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+
+  const generationsRemaining = monthlyLimit - generationsUsed
+  const usagePercent =
+    monthlyLimit > 0 ? (generationsUsed / monthlyLimit) * 100 : 0
+
+  const planLabels: Record<string, string> = {
+    free_trial: 'Free Trial',
+    basic: 'Basic',
+    pro: 'Pro',
+  }
+
+  async function handleSaveProfile() {
+    setSaving(true)
+    const supabase = createClient()
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser()
+    if (!user) return
+
+    const { error } = await supabase
+      .from('profiles')
+      .update({ full_name: fullName })
+      .eq('id', user.id)
+
+    if (error) {
+      toast.error('Failed to update profile')
+    } else {
+      toast.success('Profile updated')
+    }
+
+    setSaving(false)
+  }
+
+  async function handleDeleteAccount() {
+    setDeleting(true)
+
+    const res = await fetch('/api/account/delete', { method: 'POST' })
+
+    if (res.ok) {
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      router.push('/')
+    } else {
+      toast.error('Failed to delete account')
+      setDeleting(false)
+      setDeleteDialogOpen(false)
+    }
+  }
+
+  return (
+    <div className="flex h-screen flex-col bg-[var(--color-bg)]">
+      <AppNavbar
+        email={email}
+        fullName={fullName || null}
+        generationsRemaining={generationsRemaining}
+      />
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto max-w-2xl px-6 py-8">
+          <h1 className="text-[30px] font-semibold text-[var(--color-text-primary)]">
+            Settings
+          </h1>
+
+          {/* Section 1: Profile */}
+          <section className="mt-8">
+            <h2 className="text-[20px] font-semibold text-[var(--color-text-primary)]">
+              Profile
+            </h2>
+            <div className="mt-4 space-y-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+              <div className="space-y-2">
+                <Label htmlFor="full-name">Full name</Label>
+                <Input
+                  id="full-name"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Your full name"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Email</Label>
+                <div className="flex h-9 items-center gap-2 rounded-md border border-[var(--color-border)] bg-[var(--color-surface-raised)] px-3 text-sm text-[var(--color-text-secondary)]">
+                  <Lock className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  {email}
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button onClick={handleSaveProfile} disabled={saving} size="sm">
+                  {saving && (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  )}
+                  Save
+                </Button>
+              </div>
+            </div>
+          </section>
+
+          <Separator className="my-8" />
+
+          {/* Section 2: Subscription & Billing */}
+          <section>
+            <h2 className="text-[20px] font-semibold text-[var(--color-text-primary)]">
+              Subscription & Billing
+            </h2>
+            <div className="mt-4 space-y-6 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                    Current plan
+                  </p>
+                  <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
+                    {plan === 'free_trial'
+                      ? '2 lifetime generations included'
+                      : `Resets monthly on your billing date`}
+                  </p>
+                </div>
+                <Badge
+                  variant="secondary"
+                  className="bg-[var(--color-accent-subtle)] text-[var(--color-accent-brand)] hover:bg-[var(--color-accent-subtle)]"
+                >
+                  {planLabels[plan] ?? plan}
+                </Badge>
+              </div>
+
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-[var(--color-text-secondary)]">
+                    Generation usage
+                  </span>
+                  <span className="font-medium text-[var(--color-text-primary)]">
+                    {generationsUsed} of {monthlyLimit} used
+                  </span>
+                </div>
+                <Progress value={usagePercent} className="h-2" />
+              </div>
+
+              <div className="flex items-center justify-between">
+                {plan === 'free_trial' && (
+                  <Button size="sm" className="gap-1">
+                    Upgrade to Basic — $12/mo
+                    <ArrowUpRight className="h-3.5 w-3.5" strokeWidth={1.5} />
+                  </Button>
+                )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1 text-[var(--color-text-disabled)]"
+                      disabled
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" strokeWidth={1.5} />
+                      Manage billing
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Available after upgrading</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+            </div>
+          </section>
+
+          <Separator className="my-8" />
+
+          {/* Section 3: Account */}
+          <section className="pb-16">
+            <h2 className="text-[20px] font-semibold text-[var(--color-text-primary)]">
+              Account
+            </h2>
+            <div className="mt-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
+              <p className="text-sm text-[var(--color-text-secondary)]">
+                Permanently delete your account, all diagrams, and subscription
+                data. This action cannot be undone.
+              </p>
+              <Dialog
+                open={deleteDialogOpen}
+                onOpenChange={setDeleteDialogOpen}
+              >
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="mt-4 gap-2 border-[var(--color-danger)] text-[var(--color-danger)] hover:bg-red-50 hover:text-[var(--color-danger)]">
+                    <Trash2 className="h-4 w-4" strokeWidth={1.5} />
+                    Delete account
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-[480px]">
+                  <DialogHeader>
+                    <DialogTitle>Delete your account?</DialogTitle>
+                    <DialogDescription>
+                      This will permanently delete your account and all
+                      diagrams. This cannot be undone.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <DialogFooter className="gap-2 sm:gap-0">
+                    <Button
+                      variant="outline"
+                      onClick={() => setDeleteDialogOpen(false)}
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      onClick={handleDeleteAccount}
+                      disabled={deleting}
+                    >
+                      {deleting && (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      )}
+                      Yes, delete my account
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
+          </section>
+        </div>
+      </div>
+    </div>
+  )
+}

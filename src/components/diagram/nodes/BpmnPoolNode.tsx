@@ -1,0 +1,79 @@
+import { type NodeProps } from '@xyflow/react'
+
+export function BpmnPoolNode({ data }: NodeProps) {
+  const { label } = data as { label: string }
+
+  return (
+    <div
+      style={{
+        width: '100%',
+        height: '100%',
+        overflow: 'visible',
+        pointerEvents: 'none',
+        border: '1.5px solid #D4D4D8',
+        borderRadius: 4,
+        backgroundColor: '#FFFFFF',
+        display: 'flex',
+        position: 'relative',
+      }}
+    >
+      {/* Left label bar */}
+      <div
+        style={{
+          width: 36,
+          minWidth: 36,
+          height: '100%',
+          backgroundColor: 'var(--color-bpmn-pool-bar)',
+          borderRight: '1px solid #B8A9F0',
+          borderRadius: '3px 0 0 3px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'none',
+        }}
+      >
+        <span
+          className="select-none whitespace-nowrap font-bold"
+          style={{
+            writingMode: 'vertical-rl',
+            transform: 'rotate(180deg)',
+            fontSize: 12,
+            letterSpacing: '0.04em',
+            color: 'var(--color-bpmn-pool-bar-text)',
+          }}
+        >
+          {label}
+        </span>
+      </div>
+
+      {/* Top title bar */}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 36,
+          right: 0,
+          height: 32,
+          borderBottom: '1px solid #D4D4D8',
+          display: 'flex',
+          alignItems: 'center',
+          paddingLeft: 12,
+          backgroundColor: '#FAFAFA',
+          borderRadius: '0 3px 0 0',
+          pointerEvents: 'none',
+        }}
+      >
+        <span
+          className="select-none font-semibold"
+          style={{
+            fontSize: 12,
+            color: 'var(--color-text-primary)',
+            fontFamily: 'Inter',
+          }}
+        >
+          {label}
+        </span>
+      </div>
+    </div>
+  )
+}

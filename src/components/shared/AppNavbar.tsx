@@ -1,0 +1,106 @@
+'use client'
+
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { createClient } from '@/lib/supabase/client'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Settings, LogOut, CreditCard, Sparkles } from 'lucide-react'
+
+interface AppNavbarProps {
+  email: string
+  fullName: string | null
+  generationsRemaining: number
+}
+
+export function AppNavbar({
+  email,
+  fullName,
+  generationsRemaining,
+}: AppNavbarProps) {
+  const router = useRouter()
+
+  const initials = fullName
+    ? fullName
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .toUpperCase()
+        .slice(0, 2)
+    : email[0].toUpperCase()
+
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/')
+  }
+
+  return (
+    <header className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4">
+      <Link
+        href="/workspace"
+        className="text-base font-semibold text-[var(--color-accent-brand)]"
+      >
+        flowmapr
+      </Link>
+
+      <div className="flex items-center gap-3">
+        <Badge
+          variant="secondary"
+          className="gap-1.5 bg-[var(--color-accent-subtle)] text-[var(--color-accent-brand)] hover:bg-[var(--color-accent-subtle)]"
+        >
+          <Sparkles className="h-3 w-3" strokeWidth={1.5} />
+          {generationsRemaining} generations remaining
+        </Badge>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="ghost" className="h-8 w-8 rounded-full p-0">
+              <Avatar className="h-8 w-8">
+                <AvatarFallback className="bg-[var(--color-surface-raised)] text-xs text-[var(--color-text-secondary)]">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <div className="px-2 py-2">
+              <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                {fullName || 'User'}
+              </p>
+              <p className="text-xs text-[var(--color-text-secondary)]">
+                {email}
+              </p>
+            </div>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild>
+              <Link href="/settings">
+                <Settings className="mr-2 h-4 w-4" strokeWidth={1.5} />
+                Settings
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild>
+              <Link href="/settings">
+                <CreditCard className="mr-2 h-4 w-4" strokeWidth={1.5} />
+                Billing
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" strokeWidth={1.5} />
+              Log out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </header>
+  )
+}

@@ -1,26 +1,151 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  --radius: 0.625rem;
+
+  /* shadcn base tokens */
+  --background: #FAFAFA;
+  --foreground: #09090B;
+  --card: #FFFFFF;
+  --card-foreground: #09090B;
+  --popover: #FFFFFF;
+  --popover-foreground: #09090B;
+  --primary: #4F46E5;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F4F4F5;
+  --secondary-foreground: #09090B;
+  --muted: #F4F4F5;
+  --muted-foreground: #71717A;
+  --accent: #EEF2FF;
+  --accent-foreground: #4F46E5;
+  --destructive: #DC2626;
+  --border: #E4E4E7;
+  --input: #E4E4E7;
+  --ring: #4F46E5;
+  --chart-1: #4F46E5;
+  --chart-2: #16A34A;
+  --chart-3: #D97706;
+  --chart-4: #DC2626;
+  --chart-5: #71717A;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #09090B;
+  --sidebar-primary: #4F46E5;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #EEF2FF;
+  --sidebar-accent-foreground: #4F46E5;
+  --sidebar-border: #E4E4E7;
+  --sidebar-ring: #4F46E5;
+
+  /* Flowmapr design tokens */
+  --color-bg: #FAFAFA;
+  --color-surface: #FFFFFF;
+  --color-surface-raised: #F4F4F5;
+  --color-text-primary: #09090B;
+  --color-text-secondary: #71717A;
+  --color-text-disabled: #A1A1AA;
+  --color-accent-brand: #4F46E5;
+  --color-accent-hover: #4338CA;
+  --color-accent-subtle: #EEF2FF;
+  --color-success: #16A34A;
+  --color-warning: #D97706;
+  --color-danger: #DC2626;
+  --color-diagram-bg: #FFFFFF;
+  --color-diagram-grid: #E4E4E7;
+  --color-diagram-node: #FFFFFF;
+  --color-diagram-node-border: #D4D4D8;
+  --color-diagram-edge: #52525B;
+  --color-diagram-selected: #4F46E5;
+  --color-bpmn-task: #D5F0F7;
+  --color-bpmn-task-border: #7ECDE6;
+  --color-bpmn-gateway: #DDD6FE;
+  --color-bpmn-gateway-border: #A78BFA;
+  --color-bpmn-start: #6EE7A0;
+  --color-bpmn-start-border: #22C55E;
+  --color-bpmn-end: #FCA5A5;
+  --color-bpmn-end-border: #EF4444;
+  --color-bpmn-pool-bar: #C4B5FD;
+  --color-bpmn-pool-bar-text: #4C1D95;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+.react-flow__edge-interaction {
+  stroke-width: 20 !important;
+  stroke: transparent;
+  pointer-events: stroke;
+}
+
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke: var(--color-accent-brand);
+}
+
+.react-flow__node:hover .react-flow__handle {
+  opacity: 1 !important;
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50%;
+  background: var(--color-accent-brand) !important;
+  border: 2px solid #fff !important;
+  box-shadow: 0 0 0 1px var(--color-accent-brand);
+  transition: opacity 0.15s, width 0.15s, height 0.15s;
+}
+
+.react-flow__node.selected .react-flow__handle {
+  opacity: 1 !important;
+  width: 8px !important;
+  height: 8px !important;
 }
