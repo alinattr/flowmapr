@@ -27,6 +27,7 @@ export function BpmnTaskNode({ id, data, selected }: NodeProps) {
         border: selected
           ? '2.5px solid var(--color-diagram-selected)'
           : '1.5px solid var(--color-bpmn-task-border)',
+        color: 'var(--color-bpmn-task-text)',
         boxShadow: '0 1px 3px rgba(0,0,0,0.06)',
       }}
     >

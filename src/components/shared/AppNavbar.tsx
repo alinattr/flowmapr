@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Settings, LogOut, CreditCard, Sparkles } from 'lucide-react'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
 interface AppNavbarProps {
   email: string
@@ -53,6 +54,7 @@ export function AppNavbar({
       </Link>
 
       <div className="flex items-center gap-3">
+        <ThemeToggle />
         <Badge
           variant="secondary"
           className="gap-1.5 bg-[var(--color-accent-subtle)] text-[var(--color-accent-brand)] hover:bg-[var(--color-accent-subtle)]"

@@ -34,7 +34,7 @@ export function BpmnGatewayNode({ id, data, selected }: NodeProps) {
             boxShadow: '0 1px 3px rgba(0,0,0,0.08)',
           }}
         />
-        <span className="relative z-10 text-lg font-bold select-none" style={{ color: '#5B21B6' }}>
+        <span className="relative z-10 text-lg font-bold select-none" style={{ color: 'var(--color-bpmn-gateway-text)' }}>
           {gatewayType === 'parallel' ? '+' : '\u00D7'}
         </span>
 

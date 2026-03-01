@@ -43,6 +43,7 @@ import {
 } from 'lucide-react'
 import type { Node, Edge } from '@xyflow/react'
 import { generatePlantUML } from '@/lib/uml/plantuml'
+import { ThemeToggle } from '@/components/ui/ThemeToggle'
 
 interface DiagramTopBarProps {
   diagramId: string
@@ -114,11 +115,19 @@ export function DiagramTopBar({
     router.push('/')
   }
 
+  function getExportTarget(): HTMLElement | null {
+    const rfViewport = document.querySelector('.react-flow__viewport')
+    if (rfViewport) return rfViewport as HTMLElement
+    const diagramSvg = document.querySelector('svg[data-diagram]')
+    if (diagramSvg) return diagramSvg as unknown as HTMLElement
+    return null
+  }
+
   async function handleExportPng() {
-    const viewport = document.querySelector('.react-flow__viewport') as HTMLElement
-    if (!viewport) return
+    const target = getExportTarget()
+    if (!target) { toast.error('Nothing to export'); return }
     try {
-      const dataUrl = await toPng(viewport, {
+      const dataUrl = await toPng(target, {
         backgroundColor: '#ffffff',
         pixelRatio: 2,
       })
@@ -133,10 +142,10 @@ export function DiagramTopBar({
   }
 
   async function handleExportPdf() {
-    const viewport = document.querySelector('.react-flow__viewport') as HTMLElement
-    if (!viewport) return
+    const target = getExportTarget()
+    if (!target) { toast.error('Nothing to export'); return }
     try {
-      const dataUrl = await toPng(viewport, {
+      const dataUrl = await toPng(target, {
         backgroundColor: '#ffffff',
         pixelRatio: 2,
       })
@@ -245,6 +254,8 @@ export function DiagramTopBar({
             <Sparkles className="h-3 w-3" strokeWidth={1.5} />
             {generationsRemaining}
           </Badge>
+
+          <ThemeToggle />
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

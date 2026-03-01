@@ -1,0 +1,81 @@
+import { NextResponse } from 'next/server'
+import OpenAI from 'openai'
+import { createClient } from '@/lib/supabase/server'
+
+const SYSTEM_PROMPT = `You are an API documentation and architecture expert.
+Given an OpenAPI spec, Swagger file, or plain-text description of API endpoints, produce:
+1. A structured list of endpoints with method, path, summary, description, parameters, and responses
+2. A service architecture diagram showing which services own which endpoints
+
+Output ONLY valid JSON matching this schema exactly:
+{
+  "services": [
+    {
+      "id": string,
+      "name": string,
+      "kind": "service" | "database" | "queue" | "cache" | "external" | "gateway",
+      "technology": string | null,
+      "endpoints": [
+        {
+          "id": string,
+          "method": "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS" | "HEAD",
+          "path": string,
+          "summary": string,
+          "description": string,
+          "tags": string[],
+          "parameters": [
+            { "name": string, "in": "query" | "path" | "header" | "body", "required": boolean, "type": string, "description": string }
+          ],
+          "requestBody": { "contentType": string, "schema": string } | null,
+          "responses": [
+            { "status": number, "description": string, "schema": string | null }
+          ]
+        }
+      ],
+      "position": { "x": number, "y": number }
+    }
+  ],
+  "connections": [
+    { "id": string, "source": string, "target": string, "label": string }
+  ]
+}
+
+LAYOUT RULES:
+- Place services in a logical left-to-right flow (clients → gateways → services → databases)
+- Start x at 100, increment by 250. y starts at 100, increment by 200 for each row
+- Max 3 services per row
+
+If given a plain-text description instead of a spec, infer the endpoints from context.
+Ensure all endpoint IDs are unique. Service IDs should be simple slugs like "auth-service".`
+
+export async function POST(request: Request) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  const body = await request.json() as { spec?: string; prompt?: string }
+  const input = body.spec ?? body.prompt ?? ''
+  if (!input.trim()) return NextResponse.json({ error: 'No input provided' }, { status: 400 })
+
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      max_tokens: 4000,
+      temperature: 0.3,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: SYSTEM_PROMPT },
+        { role: 'user', content: input },
+      ],
+    })
+
+    const text = completion.choices[0]?.message?.content
+    if (!text) throw new Error('No content')
+    const parsed = JSON.parse(text)
+    return NextResponse.json(parsed)
+  } catch {
+    return NextResponse.json({ error: 'Failed to analyse API spec' }, { status: 500 })
+  }
+}

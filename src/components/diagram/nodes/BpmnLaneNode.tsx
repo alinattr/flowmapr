@@ -11,7 +11,7 @@ export function BpmnLaneNode({ data }: NodeProps) {
         overflow: 'visible',
         pointerEvents: 'none',
         display: 'flex',
-        borderBottom: '1px solid var(--color-border)',
+        borderBottom: '1px solid var(--color-bpmn-pool-border)',
       }}
     >
       <div
@@ -19,8 +19,8 @@ export function BpmnLaneNode({ data }: NodeProps) {
           width: 32,
           minWidth: 32,
           height: '100%',
-          backgroundColor: '#F8F8FA',
-          borderRight: '1px solid var(--color-border)',
+          backgroundColor: 'var(--color-bpmn-lane-label-bg)',
+          borderRight: '1px solid var(--color-bpmn-pool-border)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -34,7 +34,7 @@ export function BpmnLaneNode({ data }: NodeProps) {
             transform: 'rotate(180deg)',
             fontSize: 11,
             letterSpacing: '0.03em',
-            color: 'var(--color-text-secondary)',
+            color: 'var(--color-bpmn-lane-label-text)',
           }}
         >
           {label}

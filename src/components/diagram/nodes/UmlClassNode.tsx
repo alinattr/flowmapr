@@ -42,7 +42,7 @@ export function UmlClassNode({ data, selected }: NodeProps) {
     stereotype,
     attributes = [],
     methods = [],
-  } = data as UmlClassData
+  } = data as unknown as UmlClassData
 
   return (
     <div

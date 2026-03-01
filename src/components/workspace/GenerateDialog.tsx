@@ -6,7 +6,6 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   Dialog,
   DialogContent,
@@ -20,6 +19,26 @@ import type { DiagramType } from '@/types/diagram'
 interface GenerateDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
+}
+
+const DIAGRAM_TYPES = [
+  { value: 'bpmn',         label: 'BPMN 2.0',      color: '#6366F1', desc: 'Business process flows' },
+  { value: 'uml_sequence', label: 'UML Sequence',   color: '#22C55E', desc: 'System interactions' },
+  { value: 'erd',          label: 'ERD',            color: '#3B82F6', desc: 'Database schema' },
+  { value: 'flowchart',    label: 'Flowchart',      color: '#F59E0B', desc: 'Decision flows' },
+  { value: 'c4_l1',        label: 'C4 Model (L1)',  color: '#A78BFA', desc: 'System context' },
+  { value: 'c4_l2',        label: 'C4 Model (L2)',  color: '#8B5CF6', desc: 'Container diagram' },
+  { value: 'api_lens',     label: 'API Lens',       color: '#06B6D4', desc: 'From OpenAPI spec' },
+] as const
+
+const PLACEHOLDERS: Record<string, string> = {
+  bpmn: 'e.g. Online order process: Customer places order, Payment Service validates card, Warehouse picks items, Delivery assigns courier, Customer receives package.',
+  uml_sequence: 'e.g. Food delivery app: Customer searches restaurants and selects items. Mobile App sends order to Order Service. Order Service requests payment from Payment Service. Payment confirmed, Restaurant notified. Restaurant prepares order. Delivery Service picks up and delivers to Customer.',
+  erd: 'e.g. E-commerce database: Users table with id, email, name, created_at. Orders table with id, user_id (FK), total, status, created_at. Products table with id, name, price, stock, category_id. Order_Items table with id, order_id (FK), product_id (FK), quantity, price. Categories table with id, name, parent_id.',
+  flowchart: 'e.g. Password reset flow: User enters email. Check if email exists — if not, show error. Send reset link. User clicks link. Check if link expired — if yes, request new link. User enters new password. Save password. End.',
+  c4_l1: 'e.g. Fintech wallet system (Tambadana): Client uses Mobile App to top up wallet via FPX banking, pay QR merchants, transfer funds from credit line, and view transaction history. Mobile App connects to Backend Service which integrates with Fasspay API Wallet and stores data in PostgreSQL.',
+  c4_l2: 'e.g. Tambadana wallet containers: Mobile App (React Native) → API Gateway → Auth Service, Wallet Service, Payment Service, Transaction Service. Wallet Service → PostgreSQL. Payment Service → Fasspay API (external). All services → Redis cache.',
+  api_lens: 'Paste your OpenAPI/Swagger spec here, or describe your API endpoints:\n\ne.g. POST /auth/login — authenticate user\nGET /users/me — get current user profile\nPOST /payment/init — initialize payment with amount and currency\nGET /wallet/balance — get wallet balance\nDELETE /users/{id} — delete user account',
 }
 
 export function GenerateDialog({ open, onOpenChange }: GenerateDialogProps) {
@@ -63,7 +82,10 @@ export function GenerateDialog({ open, onOpenChange }: GenerateDialogProps) {
       }
 
       const data = await res.json()
-      router.push(`/diagram/${data.diagramId}`)
+      let destination = `/diagram/${data.diagramId}`
+      if (diagramType === 'api_lens') destination = `/api-lens/${data.diagramId}`
+      else if (diagramType === 'uml_sequence') destination = `/sequence/${data.diagramId}`
+      router.push(destination)
     } catch {
       setLoading(false)
       toast.error('Something went wrong. Please try again.')
@@ -76,49 +98,53 @@ export function GenerateDialog({ open, onOpenChange }: GenerateDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg" style={{ maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
         <DialogHeader>
           <DialogTitle>Generate a diagram</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-6 pt-2">
+        <div className="space-y-6 pt-2" style={{ overflow: 'auto', flex: 1 }}>
           <div className="space-y-3">
             <Label>Diagram type</Label>
-            <RadioGroup
-              value={diagramType}
-              onValueChange={(v) => setDiagramType(v as DiagramType)}
-              className="flex gap-4"
-            >
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="bpmn" id="type-bpmn" />
-                <Label htmlFor="type-bpmn" className="cursor-pointer font-normal">
-                  BPMN
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="user_flow" id="type-uf" />
-                <Label htmlFor="type-uf" className="cursor-pointer font-normal">
-                  User Flow
-                </Label>
-              </div>
-              <div className="flex items-center gap-2">
-                <RadioGroupItem value="uml_class" id="type-uml" />
-                <Label htmlFor="type-uml" className="cursor-pointer font-normal">
-                  ERD
-                </Label>
-              </div>
-            </RadioGroup>
+            <div className="grid grid-cols-2 gap-2">
+              {DIAGRAM_TYPES.map(({ value, label, color, desc }) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setDiagramType(value as DiagramType)}
+                  style={{
+                    padding: '10px 12px', borderRadius: 8, cursor: 'pointer', textAlign: 'left',
+                    background: diagramType === value ? `${color}15` : 'rgba(255,255,255,0.02)',
+                    border: `1.5px solid ${diagramType === value ? color + '60' : 'rgba(255,255,255,0.08)'}`,
+                    transition: 'all 0.15s ease',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: color, flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, fontWeight: 600, color: diagramType === value ? color : 'var(--color-text-primary)', fontFamily: 'Inter, sans-serif' }}>
+                      {label}
+                    </span>
+                  </div>
+                  <p style={{ marginTop: 3, fontSize: 11, color: 'var(--color-text-tertiary, #71717A)', fontFamily: 'Inter, sans-serif', paddingLeft: 16 }}>
+                    {desc}
+                  </p>
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="prompt">Describe your process</Label>
+            <Label htmlFor="prompt">
+              {diagramType === 'api_lens' ? 'Paste your OpenAPI spec or describe your API' : 'Describe your process'}
+            </Label>
             <Textarea
               id="prompt"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              placeholder="e.g. User submits a loan application, it goes through credit check, then manual review if score is low, then approval or rejection."
+              placeholder={PLACEHOLDERS[diagramType] ?? 'Describe your process…'}
               rows={5}
-              className="resize-none font-mono text-sm"
+              className="font-mono text-sm"
+              style={{ maxHeight: 200, overflowY: 'auto', resize: 'vertical' }}
             />
           </div>
 

@@ -43,7 +43,7 @@ interface UmlClassPanelProps {
 
 export function UmlClassPanel({ selectedNode, onDeleteNode }: UmlClassPanelProps) {
   const { setNodes } = useReactFlow()
-  const classData = selectedNode.data as UmlClassData
+  const classData = selectedNode.data as unknown as UmlClassData
 
   const [addingAttr, setAddingAttr] = useState(false)
   const [attrVis, setAttrVis] = useState<'+' | '-' | '#'>('+')

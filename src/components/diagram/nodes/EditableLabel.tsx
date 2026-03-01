@@ -5,11 +5,12 @@ import { useReactFlow } from '@xyflow/react'
 
 export type TextAlign = 'left' | 'center' | 'right'
 
-interface EditableLabelProps {
+export interface EditableLabelProps {
   nodeId: string
   label: string
   textAlign?: TextAlign
   className?: string
+  style?: React.CSSProperties
 }
 
 export function EditableLabel({
@@ -17,6 +18,7 @@ export function EditableLabel({
   label,
   textAlign = 'center',
   className = '',
+  style,
 }: EditableLabelProps) {
   const [editing, setEditing] = useState(false)
   const [value, setValue] = useState(label)
@@ -58,7 +60,7 @@ export function EditableLabel({
           }
         }}
         className={`w-full bg-transparent outline-none ${className}`}
-        style={{ minWidth: 40, ...alignStyle }}
+        style={{ minWidth: 40, ...alignStyle, ...style }}
       />
     )
   }
@@ -70,7 +72,7 @@ export function EditableLabel({
         setEditing(true)
       }}
       className={`block w-full cursor-text select-none ${className}`}
-      style={alignStyle}
+      style={{ ...alignStyle, ...style }}
     >
       {label}
     </span>

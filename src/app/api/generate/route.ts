@@ -2,111 +2,105 @@ import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { generatePreviewFromFlowData } from '@/lib/diagram/generatePreviewSvg'
+import { fixBpmnLayout } from '@/lib/diagram/bpmn/fixBpmnLayout'
+import { generateC4L1FromServices, generateC4L2FromServices } from '@/lib/api-lens/generateC4FromApiLens'
 
 const BPMN_PROMPT = `You are a BPMN 2.0 diagram expert. Output ONLY valid JSON. No markdown, no explanation, no code blocks.
 
-NODES — use exactly these types:
-- bpmnStartEvent: exactly one per diagram. Represents what triggers the process.
-- bpmnEndEvent: one per distinct termination. Happy path gets one. Each dead-end exception gets its own.
-- bpmnTask: any work activity. Label should be verb + noun ("Submit Report", "Review Application").
-- bpmnGateway: any decision OR merge point. Always set data.gatewayType: "xor" (decision/split) or "parallel" (merge/join).
-- bpmnPool: exactly one, wraps the entire diagram. Label = process name derived from the description.
-- bpmnLane: horizontal swimlane inside the pool. One per participant/role/department. See SWIMLANES section.
+NODE TYPES — use exactly these:
+- bpmnPool: exactly one, wraps everything. data: { label, width, height }
+- bpmnLane: horizontal swimlane inside pool. data: { label, width, height }
+- bpmnStartEvent: exactly one. The trigger event.
+- bpmnEndEvent: one per distinct termination.
+- bpmnTask: a work activity. Label = verb + noun.
+- bpmnGateway: decision or merge. data.gatewayType: "xor" or "parallel".
 
-LAYOUT ALGORITHM — apply this logic for every diagram:
+RENDERED NODE SIZES (hardcoded in the UI):
+- bpmnTask: 160px wide, 56px tall
+- bpmnGateway: 52px wide, 52px tall
+- bpmnStartEvent: 44px wide, 44px tall
+- bpmnEndEvent: 44px wide, 44px tall
+- bpmnPool: left label bar = 36px, top title bar = 32px
+- bpmnLane: left label strip = 32px
 
-Step 1. Identify the happy path: the sequence of steps when everything goes right. These go left-to-right at y=280. Start at x=100. Increment x by 200 for each node.
+COORDINATE SYSTEM — all positions are ABSOLUTE on the canvas:
+- Pool: x=20, y=20
+- Lanes: x=56 (pool_x + 36), stacked vertically
+- Content nodes: x >= 120 (56 + 32 + padding)
 
-Step 2. For each gateway on the happy path, identify exception branches (paths that deviate). Assign each exception branch its own y level:
-  - First exception branch from any gateway: y=480
-  - Second exception branch from any gateway: y=660
-  - Third: y=840
-  Each exception node's x should align with or be slightly right of the gateway it branches from.
+SWIMLANE DETECTION:
+Use swimlanes when 2+ distinct roles/actors/systems are mentioned.
+If only one implicit actor, use a plain pool with no lanes.
 
-Step 3. If an exception branch eventually rejoins the happy path, place a parallel merge gateway (+) back on y=280 at the appropriate x position. Connect exception nodes back up to it.
+LAYOUT WITH SWIMLANES (strict rules):
 
-Step 4. If an exception branch does NOT rejoin (it terminates), end it with a bpmnEndEvent at exception_node_x + 190, same y as the exception node.
+1. Lane height = 140px each (enough for one row of nodes).
+2. Lane y positions:
+   - Lane 0: y = 52  (pool_y 20 + title bar 32)
+   - Lane 1: y = 192 (52 + 140)
+   - Lane 2: y = 332 (52 + 280)
+   - Lane N: y = 52 + (N * 140)
+3. Lane width = pool_width - 36
+4. Pool width = (number_of_columns * 190) + 180
+5. Pool height = (number_of_lanes * 140) + 32
 
-Step 5. Never place two nodes at the same x,y. Minimum 60px clearance between any two nodes in any direction.
+NODE POSITIONS INSIDE LANES — column-based grid:
+- Column 0: x = 130
+- Column 1: x = 320
+- Column 2: x = 510
+- Column 3: x = 700
+- Column 4: x = 890
+- Column N: x = 130 + (N * 190)
+- Center vertically in lane: node_y = lane_y + 42 (for tasks/gateways)
+- For start/end events: node_y = lane_y + 48
 
-Step 6. Pool dimensions: x=20, y=20. width = (x of rightmost node + node_width + 120). height = (y of lowest node + node_height + 120). Never let the pool be smaller than its contents.
+Process flows LEFT to RIGHT. Each sequential step increments the column.
+Cross-lane edges connect nodes in different lanes (handoffs between roles).
+A node belongs to the lane of its responsible role — place it at that lane's y.
+
+LAYOUT WITHOUT SWIMLANES:
+- Pool: x=20, y=20, width = (columns * 190) + 160, height = max_y + 140
+- Happy path: y=100, x starts at 100, increments by 190
+- Exception branches from gateways: y=260 (first), y=420 (second)
+- Gateway "Yes/success" goes right (same y), "No/failure" goes down (+160 y)
 
 EDGE RULES:
-- Every edge leaving a gateway MUST have a label. Use domain-appropriate terms: Yes/No, Approved/Rejected, In Stock/Out of Stock, Success/Failure, etc.
-- Edges going right (main flow): sourceHandle: "right"
-- Edges going down (exception): sourceHandle: "bottom"
-- Edges going back up to merge: targetHandle: "bottom" on the merge gateway
-- Merge gateway incoming edges: no label needed
-- All other edges: no label needed
+- Every edge leaving a gateway MUST have a label (Yes/No, Approved/Rejected, etc.)
+- Main flow edges going right: sourceHandle "right", targetHandle "left"
+- Branch edges going down: sourceHandle "bottom", targetHandle "top"
+- Merge edges coming from below: sourceHandle "top", targetHandle "bottom"
+- Non-gateway edges: no label needed
 
-GATEWAY SYMBOL RULES:
-- XOR gateway (decision): data.gatewayType: "xor" — render with X symbol
-- Parallel gateway (merge): data.gatewayType: "parallel" — render with + symbol
-- Never use a gateway just to make the diagram look symmetric. Only add a gateway when there is actual branching or merging logic.
-
-OUTPUT FORMAT — strictly:
+OUTPUT FORMAT:
 {
   "type": "bpmn",
-  "hasSwimlanes": false,
+  "hasSwimlanes": true|false,
   "nodes": [
-    { "id": "pool", "type": "bpmnPool", "position": { "x": 20, "y": 20 }, "data": { "label": "string", "width": number, "height": number } },
-    { "id": "string", "type": "bpmnLane", "position": { "x": 56, "y": number }, "data": { "label": "string", "width": number, "height": 180 } },
-    { "id": "string", "type": "bpmnStartEvent|bpmnEndEvent|bpmnTask|bpmnGateway", "position": { "x": number, "y": number }, "data": { "label": "string", "gatewayType?": "xor|parallel" } }
+    { "id": "pool", "type": "bpmnPool", "position": { "x": 20, "y": 20 }, "data": { "label": "Process Name", "width": NUMBER, "height": NUMBER } },
+    { "id": "lane_0", "type": "bpmnLane", "position": { "x": 56, "y": 52 }, "data": { "label": "Role", "width": NUMBER, "height": 140 } },
+    { "id": "start", "type": "bpmnStartEvent", "position": { "x": 130, "y": 100 }, "data": { "label": "Start" } },
+    { "id": "t1", "type": "bpmnTask", "position": { "x": 320, "y": 94 }, "data": { "label": "Do Something" } },
+    { "id": "gw1", "type": "bpmnGateway", "position": { "x": 510, "y": 94 }, "data": { "label": "Check?", "gatewayType": "xor" } }
   ],
   "edges": [
-    { "id": "string", "source": "string", "target": "string", "label?": "string", "sourceHandle?": "right|bottom|left|top", "targetHandle?": "right|bottom|left|top" }
+    { "id": "e1", "source": "start", "target": "t1" },
+    { "id": "e2", "source": "t1", "target": "gw1" },
+    { "id": "e3", "source": "gw1", "target": "t2", "label": "Yes", "sourceHandle": "right" },
+    { "id": "e4", "source": "gw1", "target": "t3", "label": "No", "sourceHandle": "bottom" }
   ]
 }
 
-SWIMLANES — when to use:
-Use swimlanes when the process involves 2+ distinct participants, roles, departments, or systems. If the description says who does what ("customer submits", "manager reviews"), use swimlanes.
-If only one implicit actor, do NOT use swimlanes — use a plain pool.
+QUALITY CHECKLIST:
+- Exactly one bpmnStartEvent, at least one bpmnEndEvent
+- Every gateway has 2+ outgoing labeled edges
+- No two nodes at the same position — minimum 130px horizontal gap, 80px vertical gap
+- Pool width and height fully contain all nodes with 40px padding
+- If swimlanes: every node's y is within its lane's y range (lane_y to lane_y + 140)
+- Every node is connected — no orphans
+- Lane widths all equal pool_width - 36
 
-SWIMLANE COORDINATE SYSTEM (matches the rendered UI exactly):
-- Pool position: x=20, y=20. Pool has a 36px left label bar.
-- Lanes start at x=56 (pool_x + 36). Each lane has a 32px label bar.
-- Content nodes start at x=120 minimum (56 + 32 + padding). Increment x by 190.
-
-SWIMLANE LAYOUT RULES:
-1. Identify all participants. Each becomes a lane. Order top-to-bottom by first appearance.
-2. Lane height: 180px per lane (all lanes same height in one diagram).
-3. Lane y positions (below the 32px pool title bar):
-   - Lane 1: y = 52 (pool_y 20 + title bar 32)
-   - Lane 2: y = 232 (52 + 180)
-   - Lane 3: y = 412 (52 + 360)
-   - Formula: lane_y = 52 + (lane_index * 180)
-4. Nodes inside a lane:
-   - node_y = lane_y + 62 (vertically centered in 180px lane, accounting for node height ~56px)
-   - node_x starts at 120, increments by 190
-5. Cross-lane edges are allowed. They represent handoffs.
-6. Pool height = (number_of_lanes * 180) + 32
-7. Pool width = rightmost_node_x + 200
-
-PARALLEL BRANCHES IN SWIMLANES:
-1. Split and merge gateways stay in the initiating lane.
-2. Branch nodes in other lanes: x between split (S) and merge (S+240). Branch x = S+120.
-3. Split→branch edges: sourceHandle "bottom", targetHandle "top"
-4. Branch→merge edges: sourceHandle "right", targetHandle "left"
-5. Parallel gateway edges do NOT need labels.
-
-LANE NODE FORMAT:
-{ "id": "lane_1", "type": "bpmnLane", "position": { "x": 56, "y": LANE_Y }, "data": { "label": "Name", "width": POOL_WIDTH_MINUS_36, "height": 180 } }
-
-Include lane nodes after the pool node and before task/gateway/event nodes.
-
-If hasSwimlanes: true, include lanes. If false, no lane nodes.
-
-QUALITY CHECKLIST — before outputting, verify:
-- Exactly one bpmnStartEvent
-- At least one bpmnEndEvent
-- Every gateway has at least 2 outgoing edges
-- Every outgoing gateway edge has a label
-- No two nodes share the same x,y position
-- Pool width and height contain all nodes with padding
-- All edge sourceHandle values are set for gateway outgoing edges
-- If swimlanes: every task/event node y is inside the correct lane's y range
-
-Now generate a diagram for the following process.`
+Now generate a BPMN diagram for the following process.`
 
 const USER_FLOW_PROMPT = `You are a User Flow / Journey Map diagram generator. Given a process description, produce a user-centric flow diagram.
 
@@ -190,10 +184,325 @@ QUALITY CHECKLIST before outputting:
 
 Now generate a UML class diagram for the following system.`
 
+const API_LENS_PROMPT = `You are an API documentation and architecture expert.
+Given an OpenAPI spec, Swagger file, or plain-text description of API endpoints, produce:
+1. A structured list of endpoints with method, path, summary, description, parameters, and responses
+2. A service architecture diagram showing which services own which endpoints
+
+Output ONLY valid JSON matching this schema exactly:
+{
+  "services": [
+    {
+      "id": string,
+      "name": string,
+      "kind": "service" | "database" | "queue" | "cache" | "external" | "gateway",
+      "technology": string | null,
+      "endpoints": [
+        {
+          "id": string,
+          "method": "GET" | "POST" | "PUT" | "PATCH" | "DELETE" | "OPTIONS" | "HEAD",
+          "path": string,
+          "summary": string,
+          "description": string,
+          "tags": string[],
+          "parameters": [
+            { "name": string, "in": "query" | "path" | "header" | "body", "required": boolean, "type": string, "description": string }
+          ],
+          "requestBody": { "contentType": string, "schema": string } | null,
+          "responses": [
+            { "status": number, "description": string, "schema": string | null }
+          ]
+        }
+      ],
+      "position": { "x": number, "y": number }
+    }
+  ],
+  "connections": [
+    { "id": string, "source": string, "target": string, "label": string }
+  ]
+}
+
+LAYOUT RULES:
+- Place services in a logical left-to-right flow (clients → gateways → services → databases)
+- Start x at 100, increment by 250. y starts at 100, increment by 200 for each row
+- Max 3 services per row
+
+If given a plain-text description instead of a spec, infer the endpoints from context.
+Ensure all endpoint IDs are unique. Service IDs should be simple slugs like "auth-service".`
+
+const C4_L1_PROMPT = `You are a C4 Model (Level 1 — System Context) diagram expert. Output ONLY valid JSON. No markdown, no explanation, no code blocks. Given a system description, generate a System Context diagram showing people and software systems.
+
+NODES — use exactly these types:
+- c4Person: A human actor/user interacting with the system. Label = role name ("Customer", "Admin").
+- c4Container: An internal software system we own. Label = system name ("Mobile App", "Backend Service"). Set data.technology to a short description like "React Native App" or "Spring Boot Service".
+- c4SystemExt: An external system or third-party API. Label = external system name ("Payment Gateway", "Email Service"). Set data.technology to identify it like "Stripe API" or "SendGrid".
+
+This is a HIGH-LEVEL overview — do NOT show internal containers, databases, or services. Show only the major systems and their relationships.
+
+LAYOUT RULES:
+- Person nodes at top or left (y=80)
+- Internal systems in the center (y=280)
+- External systems at right or bottom (y=480)
+- x starts at 100, increment by 300
+- Leave at least 100px gap between nodes
+
+EDGE RULES:
+- Label every edge with the interaction description ("Uses", "Sends emails via", "Processes payments through")
+- Use verb phrases that explain the relationship
+
+OUTPUT FORMAT — strictly:
+{
+  "type": "c4_l1",
+  "nodes": [
+    { "id": string, "type": "c4Person"|"c4Container"|"c4SystemExt", "position": { "x": number, "y": number }, "data": { "label": string, "technology": string|null, "description": string|null } }
+  ],
+  "edges": [
+    { "id": string, "source": string, "target": string, "label": string }
+  ]
+}
+
+Now generate a C4 System Context diagram for the following system.`
+
+const C4_L2_PROMPT = `You are a C4 Model (Level 2 — Container) diagram expert. Output ONLY valid JSON. No markdown, no explanation, no code blocks. Given a system description, generate a Container diagram showing the internal structure of one system.
+
+NODES — use exactly these types:
+- c4Container: An internal container (web app, mobile app, API, service, database). Label = container name. Set data.technology to the tech stack like "[React Native]", "[Node.js]", "[PostgreSQL]", "[Redis]".
+- c4SystemExt: An external system that containers communicate with. Label = external system name. Set data.technology to identify it like "Stripe API".
+- c4Person: Optional — a user interacting with the frontend container.
+
+This ZOOMS INTO one system — show internal containers: frontends, backends, databases, message queues, caches.
+
+LAYOUT RULES:
+- Person/client at top (y=60)
+- Frontend containers below (y=200)
+- API Gateway / Backend containers in middle (y=380)
+- Database / cache / queue containers at bottom (y=560)
+- External systems to the right (x=700+, y=380)
+- x starts at 100, increment by 280
+- Leave at least 80px gap between nodes
+
+EDGE RULES:
+- Label every edge with the protocol or purpose ("Makes API calls [HTTPS]", "Reads/writes [SQL]", "Publishes events [AMQP]")
+- Include technology in brackets when relevant
+
+OUTPUT FORMAT — strictly:
+{
+  "type": "c4_l2",
+  "nodes": [
+    { "id": string, "type": "c4Person"|"c4Container"|"c4SystemExt", "position": { "x": number, "y": number }, "data": { "label": string, "technology": string|null, "description": string|null } }
+  ],
+  "edges": [
+    { "id": string, "source": string, "target": string, "label": string }
+  ]
+}
+
+Now generate a C4 Container diagram for the following system.`
+
+const SEQUENCE_PROMPT = `You are a UML Sequence Diagram expert. Output ONLY valid JSON. No markdown, no explanation, no code blocks.
+
+Generate a UML Sequence diagram as a flat JSON structure — NOT React Flow nodes/edges. The output is rendered by a custom SVG renderer.
+
+OUTPUT FORMAT — strictly:
+{
+  "title": "diagram name",
+  "participants": [
+    { "id": "p1", "label": ":ActorName", "type": "actor", "x": 60 },
+    { "id": "p2", "label": ":ServiceName", "type": "object", "x": 240 },
+    { "id": "p3", "label": ":DatabaseName", "type": "database", "x": 420 }
+  ],
+  "messages": [
+    { "id": "m1", "from": "p1", "to": "p2", "label": "1: methodCall()", "type": "sync", "y": 160 },
+    { "id": "m2", "from": "p2", "to": "p3", "label": "1.1: query()", "type": "sync", "y": 220 },
+    { "id": "m3", "from": "p3", "to": "p2", "label": "1.2: result", "type": "return", "y": 280 },
+    { "id": "m4", "from": "p2", "to": "p1", "label": "1.3: response", "type": "return", "y": 340 }
+  ],
+  "fragments": [
+    {
+      "id": "f1", "type": "alt", "condition": "success",
+      "elseCondition": "failure",
+      "yStart": 260, "yEnd": 400,
+      "xStart": 200, "xEnd": 500
+    }
+  ]
+}
+
+PARTICIPANT RULES:
+- x positions: start at 60, increment by 180 for each participant
+- "type": "actor" for humans/users, "object" for services/systems/apps, "database" for databases
+- Max 6 participants for readability
+- label should start with ":" like ":Customer", ":OrderService"
+
+MESSAGE RULES:
+- y positions: start at 160, increment by 60 for each message
+- "type": "sync" for method calls (solid arrow), "return" for responses (dashed arrow)
+- Number messages: 1, 1.1, 1.2, 2, 2.1, 3 etc.
+- "from" and "to" are participant IDs
+
+FRAGMENT RULES:
+- Fragments wrap groups of messages to show conditional/loop logic
+- "type": "alt" (if/else), "loop" (repeat), "opt" (optional), "par" (parallel), "ref" (reference)
+- yStart/yEnd should cover the messages inside the fragment with ~20px padding
+- xStart/xEnd should span the involved participants with ~40px padding
+- Only use fragments when the description implies conditional or repeated behavior
+
+QUALITY CHECKLIST:
+- Every participant has a unique id and incremental x position
+- Messages reference valid participant IDs
+- Messages are numbered sequentially
+- Return messages use type "return"
+- Fragment bounds contain their messages
+- Title is descriptive
+
+EXAMPLE for "User logs in via API":
+{
+  "title": "User Login",
+  "participants": [
+    { "id": "p1", "label": ":User", "type": "actor", "x": 60 },
+    { "id": "p2", "label": ":API", "type": "object", "x": 240 },
+    { "id": "p3", "label": ":AuthService", "type": "object", "x": 420 },
+    { "id": "p4", "label": ":Database", "type": "database", "x": 600 }
+  ],
+  "messages": [
+    { "id": "m1", "from": "p1", "to": "p2", "label": "1: login(email, pwd)", "type": "sync", "y": 160 },
+    { "id": "m2", "from": "p2", "to": "p3", "label": "1.1: authenticate()", "type": "sync", "y": 220 },
+    { "id": "m3", "from": "p3", "to": "p4", "label": "1.2: findUser(email)", "type": "sync", "y": 280 },
+    { "id": "m4", "from": "p4", "to": "p3", "label": "1.3: userRecord", "type": "return", "y": 340 },
+    { "id": "m5", "from": "p3", "to": "p2", "label": "1.4: JWT token", "type": "return", "y": 400 },
+    { "id": "m6", "from": "p2", "to": "p1", "label": "1.5: 200 OK + token", "type": "return", "y": 460 }
+  ],
+  "fragments": [
+    {
+      "id": "f1", "type": "alt", "condition": "credentials valid",
+      "elseCondition": "invalid credentials",
+      "yStart": 260, "yEnd": 480,
+      "xStart": 200, "xEnd": 680
+    }
+  ]
+}
+
+Now generate a UML Sequence Diagram for the following interaction.`
+
+const FLOWCHART_PROMPT = `You are a Flowchart diagram expert. Output ONLY valid JSON. No markdown, no explanation, no code blocks. Given a process description, generate a standard flowchart.
+
+NODES — use exactly these types:
+- fcStart: Start node (pill shape, green). Exactly one per diagram. Label = trigger event.
+- fcEnd: End node (pill shape, red). One per distinct termination.
+- fcProcess: Process/action step (rectangle, indigo). Label = verb + noun ("Validate Input", "Send Email").
+- fcDecision: Decision point (diamond, blue). Label = yes/no question ("Is valid?", "Approved?").
+- fcData: Data/IO node (parallelogram, amber). Label = data description ("User Input", "Report Output").
+- fcSubprocess: Subprocess node (rectangle with marker, purple). Label = subprocess name.
+
+LAYOUT RULES:
+- Main flow goes top-to-bottom: y starts at 60, increment by 120
+- All main-flow nodes at x=300
+- Decision branches go right: x=600 for "No" branch
+- Converge back to main flow when branches rejoin
+- No two nodes at same x,y
+- Minimum 40px clearance
+
+EDGE RULES:
+- Decision outgoing edges MUST have labels ("Yes"/"No", "True"/"False", etc.)
+- Normal flow edges: no label needed
+- Use sourceHandle "bottom" for main flow, "right" for branches
+
+OUTPUT FORMAT — strictly:
+{
+  "type": "flowchart",
+  "nodes": [
+    { "id": string, "type": "fcStart"|"fcEnd"|"fcProcess"|"fcDecision"|"fcData"|"fcSubprocess", "position": { "x": number, "y": number }, "data": { "label": string } }
+  ],
+  "edges": [
+    { "id": string, "source": string, "target": string, "label"?: string, "sourceHandle"?: string }
+  ]
+}
+
+QUALITY CHECKLIST:
+- Exactly one fcStart
+- At least one fcEnd
+- Every fcDecision has at least 2 outgoing labeled edges
+- No orphan nodes — every node is connected
+- Flow is logical and complete
+
+Now generate a flowchart for the following process.`
+
+const ERD_PROMPT = `Output ONLY valid JSON. No markdown, no explanation, no code blocks.
+
+You are generating an Entity Relationship Diagram (ERD).
+
+Generate nodes and edges as JSON following these STRICT rules:
+
+ENTITY NODES (type: "erd-entity"):
+- Each entity = one database table
+- Position entities in a grid: up to 3 columns, spacing 280px horizontal, 220px vertical
+- Column positions: col1.x=60, col2.x=340, col3.x=620
+- Row positions: row1.y=60, row2.y=280, row3.y=500
+
+Node structure:
+{
+  "id": "users",
+  "type": "erd-entity",
+  "position": {"x": 60, "y": 60},
+  "data": {
+    "label": "Users",
+    "fields": [
+      {"name": "id", "type": "uuid", "key": "PK"},
+      {"name": "email", "type": "varchar(255)", "key": "UQ"},
+      {"name": "name", "type": "varchar(100)", "key": null},
+      {"name": "created_at", "type": "timestamp", "key": null}
+    ]
+  }
+}
+
+FIELD KEY VALUES:
+- "PK" — primary key (always first field)
+- "FK" — foreign key referencing another table
+- "UQ" — unique constraint
+- null — regular field (no constraint)
+
+RELATIONSHIP EDGES (type: "smoothstep"):
+{
+  "id": "users_orders",
+  "type": "smoothstep",
+  "source": "users",
+  "target": "orders",
+  "label": "1:N",
+  "sourceHandle": "right",
+  "targetHandle": "left"
+}
+
+CARDINALITY LABELS:
+- "1:1" — one to one
+- "1:N" — one to many
+- "N:M" — many to many
+
+RULES:
+- Include 4–8 entities for a realistic schema
+- Always include id (PK) as the first field in every entity
+- Every FK field must have a corresponding edge connecting the two entities
+- Use realistic SQL types: uuid, varchar(n), integer, decimal(10,2), timestamp, boolean, text
+- Arrange entities to minimize edge crossings (related tables close together)
+- No two nodes at the same position
+
+OUTPUT FORMAT:
+{
+  "nodes": [ ...erd-entity nodes... ],
+  "edges": [ ...smoothstep edges... ]
+}
+
+Now generate an ERD for the following database description.`
+
 function getSystemPrompt(type: string): string {
   if (type === 'bpmn') return BPMN_PROMPT
+  if (type === 'uml_sequence') return SEQUENCE_PROMPT
+  if (type === 'erd') return ERD_PROMPT
+  if (type === 'flowchart') return FLOWCHART_PROMPT
+  if (type === 'c4_l1') return C4_L1_PROMPT
+  if (type === 'c4_l2') return C4_L2_PROMPT
+  if (type === 'api_lens') return API_LENS_PROMPT
+  // Legacy fallbacks
   if (type === 'uml_class') return UML_CLASS_PROMPT
-  return USER_FLOW_PROMPT
+  if (type === 'c4') return C4_L1_PROMPT
+  return BPMN_PROMPT
 }
 
 export async function POST(request: Request) {
@@ -231,7 +540,7 @@ export async function POST(request: Request) {
 
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
-  let flowData: { nodes: unknown[]; edges: unknown[] }
+  let flowData: Record<string, unknown>
 
   try {
     const completion = await openai.chat.completions.create({
@@ -257,7 +566,21 @@ export async function POST(request: Request) {
     }
 
     const parsed = JSON.parse(text)
-    flowData = { nodes: parsed.nodes, edges: parsed.edges }
+    if (diagramType === 'api_lens') {
+      flowData = { services: parsed.services ?? [], connections: parsed.connections ?? [] }
+    } else if (diagramType === 'uml_sequence') {
+      flowData = {
+        title: parsed.title ?? '',
+        participants: parsed.participants ?? [],
+        messages: parsed.messages ?? [],
+        fragments: parsed.fragments ?? [],
+      }
+    } else if (diagramType === 'bpmn') {
+      const fixedNodes = fixBpmnLayout(parsed.nodes ?? [])
+      flowData = { nodes: fixedNodes, edges: parsed.edges ?? [] }
+    } else {
+      flowData = { nodes: parsed.nodes ?? [], edges: parsed.edges ?? [] }
+    }
   } catch {
     return NextResponse.json(
       { error: 'Failed to generate diagram' },
@@ -275,6 +598,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'quota_exceeded' }, { status: 402 })
   }
 
+  const preview_svg = generatePreviewFromFlowData(diagramType, flowData)
+
   const { data: diagram, error: insertError } = await supabase
     .from('diagrams')
     .insert({
@@ -283,6 +608,7 @@ export async function POST(request: Request) {
       diagram_type: diagramType,
       flow_data: flowData,
       prompt,
+      preview_svg: preview_svg || null,
     })
     .select('id')
     .single()
@@ -301,6 +627,55 @@ export async function POST(request: Request) {
     diagram_type: diagramType,
     success: true,
   })
+
+  // After API Lens is saved, auto-generate linked C4 L1 + L2 diagrams
+  if (diagramType === 'api_lens') {
+    // Fire-and-forget: don't block the API Lens response
+    ;(async () => {
+      try {
+        const services = (flowData.services as Parameters<typeof generateC4L1FromServices>[0]) ?? []
+        const connections = (flowData.connections as Parameters<typeof generateC4L1FromServices>[1]) ?? []
+        const systemName = prompt.split('\n')[0].slice(0, 60) || 'System'
+
+        const c4l1Data = generateC4L1FromServices(services, connections, systemName)
+        const c4l2Data = generateC4L2FromServices(services, connections, systemName)
+
+        const previewL1 = generatePreviewFromFlowData('c4_l1', { nodes: c4l1Data.nodes, edges: c4l1Data.edges })
+        const previewL2 = generatePreviewFromFlowData('c4_l2', { nodes: c4l2Data.nodes, edges: c4l2Data.edges })
+
+        const adminClient = createAdminClient()
+
+        const [{ data: c4l1 }, { data: c4l2 }] = await Promise.all([
+          adminClient.from('diagrams').insert({
+            user_id: user.id,
+            title: c4l1Data.title,
+            diagram_type: 'c4_l1',
+            flow_data: { nodes: c4l1Data.nodes, edges: c4l1Data.edges },
+            prompt: `Auto-generated from API Lens: ${systemName}`,
+            preview_svg: previewL1 || null,
+          }).select('id').single(),
+          adminClient.from('diagrams').insert({
+            user_id: user.id,
+            title: c4l2Data.title,
+            diagram_type: 'c4_l2',
+            flow_data: { nodes: c4l2Data.nodes, edges: c4l2Data.edges },
+            prompt: `Auto-generated from API Lens: ${systemName}`,
+            preview_svg: previewL2 || null,
+          }).select('id').single(),
+        ])
+
+        if (c4l1?.id && c4l2?.id) {
+          await adminClient
+            .from('diagrams')
+            .update({ metadata: { linked_c4_l1: c4l1.id, linked_c4_l2: c4l2.id } })
+            .eq('id', diagram.id)
+        }
+      } catch (err) {
+        // Non-blocking — log but don't fail the API Lens response
+        console.error('[API Lens] C4 auto-generation failed:', err)
+      }
+    })()
+  }
 
   return NextResponse.json({ diagramId: diagram.id, flowData })
 }

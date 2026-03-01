@@ -39,7 +39,7 @@ export function generatePlantUML(nodes: Node[], edges: Edge[]): string {
   const classNodes = nodes.filter((n) => n.type === 'umlClass')
 
   for (const node of classNodes) {
-    const { name, stereotype, attributes, methods } = node.data as UmlClassData
+    const { name, stereotype, attributes, methods } = node.data as unknown as UmlClassData
 
     if (stereotype === '<<interface>>') {
       lines.push(`interface ${name} {`)
@@ -86,8 +86,8 @@ export function generatePlantUML(nodes: Node[], edges: Edge[]): string {
     const targetNode = classNodes.find((n) => n.id === edge.target)
     if (!sourceNode || !targetNode) continue
 
-    const srcName = (sourceNode.data as UmlClassData).name
-    const tgtName = (targetNode.data as UmlClassData).name
+    const srcName = (sourceNode.data as unknown as UmlClassData).name
+    const tgtName = (targetNode.data as unknown as UmlClassData).name
     const label = edge.label ? ` : ${edge.label}` : ''
     lines.push(`${srcName} ${symbol} ${tgtName}${label}`)
   }

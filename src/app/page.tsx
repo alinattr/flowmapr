@@ -1,215 +1,44 @@
-import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion'
-import {
-  Timer,
-  Code2,
-  CloudOff,
-  FileText,
-  Sparkles,
-  Share2,
-  Check,
-  ArrowRight,
-} from 'lucide-react'
 import Link from 'next/link'
-
-function Navbar() {
-  return (
-    <header className="sticky top-0 z-50 border-b border-[var(--color-border)] bg-[var(--color-surface)]/95 backdrop-blur-sm">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-        <Link
-          href="/"
-          className="text-xl font-semibold text-[var(--color-accent-brand)]"
-        >
-          flowmapr
-        </Link>
-        <div className="flex items-center gap-3">
-          <Button variant="outline" size="sm" asChild>
-            <Link href="/login">Sign in</Link>
-          </Button>
-          <Button size="sm" asChild>
-            <Link href="/signup">Get started</Link>
-          </Button>
-        </div>
-      </div>
-    </header>
-  )
-}
-
-function Hero() {
-  return (
-    <section className="flex flex-col items-center px-6 pb-[48px] pt-[64px]">
-      <h1 className="max-w-2xl text-center text-[48px] font-bold leading-[1.1] tracking-tight text-[var(--color-text-primary)]">
-        Turn requirements into diagrams.{' '}
-        <span className="text-[var(--color-accent-brand)]">Instantly.</span>
-      </h1>
-      <p className="mt-6 max-w-lg text-center text-lg text-[var(--color-text-secondary)]">
-        Describe a process in plain language — get a clean, editable BPMN or
-        User Flow diagram in seconds. No code. No Visio. No moving boxes for 40
-        minutes.
-      </p>
-      <div className="mt-10 flex flex-col items-center gap-4 sm:flex-row">
-        <Button size="lg" className="h-12 px-8 text-base" asChild>
-          <Link href="/signup">Try free — no credit card required</Link>
-        </Button>
-        <Button variant="outline" size="lg" className="h-12 px-8 text-base" asChild>
-          <a href="#how-it-works">See how it works</a>
-        </Button>
-      </div>
-      <div className="mt-16 w-full max-w-4xl overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)]">
-        <div className="flex items-center gap-2 border-b border-[var(--color-border)] px-4 py-3">
-          <div className="h-3 w-3 rounded-full bg-[var(--color-border)]" />
-          <div className="h-3 w-3 rounded-full bg-[var(--color-border)]" />
-          <div className="h-3 w-3 rounded-full bg-[var(--color-border)]" />
-        </div>
-        <div className="flex h-80 items-center justify-center bg-[var(--color-surface-raised)]">
-          <div className="flex flex-col items-center gap-3 text-[var(--color-text-disabled)]">
-            <FileText className="h-12 w-12" strokeWidth={1} />
-            <span className="text-sm">Demo screenshot placeholder</span>
-          </div>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-const problems = [
-  {
-    icon: Timer,
-    title: 'Draw.io takes forever',
-    description:
-      'Dragging boxes, aligning arrows, fixing layouts — 2 hours for one diagram that should take 2 minutes.',
-  },
-  {
-    icon: Code2,
-    title: 'Eraser is built for developers',
-    description:
-      'Great tool, wrong audience. Business analysts need BPMN and flows, not architecture diagrams.',
-  },
-  {
-    icon: CloudOff,
-    title: "ChatGPT can't save your work",
-    description:
-      'AI can generate a diagram description, but you can\'t edit it, share it, or export a proper PDF.',
-  },
-]
-
-function Problem() {
-  return (
-    <section className="bg-[var(--color-surface)] py-[48px]">
-      <div className="mx-auto max-w-6xl px-6">
-        <h2 className="text-center text-[30px] font-semibold text-[var(--color-text-primary)]">
-          Diagramming shouldn&apos;t be this painful
-        </h2>
-        <div className="mt-12 grid gap-8 md:grid-cols-3">
-          {problems.map((p) => (
-            <div
-              key={p.title}
-              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)]"
-            >
-              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--color-accent-subtle)]">
-                <p.icon className="h-5 w-5 text-[var(--color-accent-brand)]" strokeWidth={1.5} />
-              </div>
-              <h3 className="mt-4 text-base font-medium text-[var(--color-text-primary)]">
-                {p.title}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-secondary)]">
-                {p.description}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-const steps = [
-  {
-    number: '1',
-    title: 'Describe your process',
-    description:
-      'Write what happens in plain English. No special syntax, no code — just describe the flow.',
-  },
-  {
-    number: '2',
-    title: 'AI builds the diagram',
-    description:
-      'Flowmapr generates a clean, properly structured BPMN or User Flow diagram in seconds.',
-  },
-  {
-    number: '3',
-    title: 'Edit, share, export',
-    description:
-      'Drag nodes to rearrange, share a read-only link with your team, or export to PNG/PDF.',
-  },
-]
-
-function HowItWorks() {
-  return (
-    <section id="how-it-works" className="py-[48px]">
-      <div className="mx-auto max-w-6xl px-6">
-        <h2 className="text-center text-[30px] font-semibold text-[var(--color-text-primary)]">
-          How it works
-        </h2>
-        <div className="mt-12 grid gap-10 md:grid-cols-3">
-          {steps.map((s) => (
-            <div key={s.number} className="flex flex-col items-center text-center">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-accent-brand)] text-sm font-semibold text-white">
-                {s.number}
-              </div>
-              <h3 className="mt-4 text-base font-medium text-[var(--color-text-primary)]">
-                {s.title}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-secondary)]">
-                {s.description}
-              </p>
-              <div className="mt-6 w-full overflow-hidden rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-raised)]">
-                <div className="flex h-48 items-center justify-center">
-                  <span className="text-xs text-[var(--color-text-disabled)]">
-                    Screenshot placeholder
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
+import { Check, ArrowRight } from 'lucide-react'
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion'
+import { Separator } from '@/components/ui/separator'
+import { LandingNav } from '@/components/landing/LandingNav'
+import { MorphingDiagram } from '@/components/landing/MorphingDiagram'
+import { HowItWorksCards } from '@/components/landing/HowItWorksCards'
+import { DiagramTypesGrid } from '@/components/landing/DiagramTypesGrid'
+import { SocialLinks } from '@/components/landing/SocialLinks'
+import { AuroraBackground } from '@/components/landing/AuroraBackground'
+import { CodeRain } from '@/components/landing/CodeRain'
+import { BackToTop } from '@/components/landing/BackToTop'
 
 const plans = [
   {
     name: 'Free Trial',
     price: '$0',
     period: '',
-    description: 'Try it out — no commitment',
+    desc: 'Try Flowmapr with no commitment',
     highlight: false,
     features: [
-      '2 AI generations (lifetime)',
+      '5 AI generations (lifetime)',
       'Up to 5 diagrams',
+      'All diagram types',
       'Export PNG / PDF',
       'Public sharing',
     ],
-    cta: 'Get started',
+    cta: 'Get started free',
     href: '/signup',
   },
   {
     name: 'Basic',
-    price: '$12',
+    price: '$20',
     period: '/mo',
-    description: 'For individuals who diagram regularly',
+    desc: 'For individuals who diagram regularly',
     highlight: true,
+    badge: 'Most popular',
     features: [
       '100 AI generations / month',
       'Up to 50 diagrams',
+      'API Lens',
       'Export PNG / PDF',
       'Public sharing',
       'Upload doc as context',
@@ -219,176 +48,250 @@ const plans = [
   },
   {
     name: 'Pro',
-    price: '$30',
+    price: '$50',
     period: '/mo',
-    description: 'For power users and teams',
+    desc: 'For power users with full access',
     highlight: false,
     features: [
       '500 AI generations / month',
       'Unlimited diagrams',
-      'Export PNG / PDF',
-      'Public sharing',
+      'API Lens',
+      'Export all formats',
+      'Share & embed',
       'Upload doc as context',
-      'Version history (coming soon)',
     ],
     cta: 'Get started',
     href: '/signup',
   },
 ]
 
-function Pricing() {
-  return (
-    <section className="bg-[var(--color-surface)] py-[48px]">
-      <div className="mx-auto max-w-6xl px-6">
-        <h2 className="text-center text-[30px] font-semibold text-[var(--color-text-primary)]">
-          Simple, transparent pricing
-        </h2>
-        <p className="mt-3 text-center text-sm text-[var(--color-text-secondary)]">
-          Annual billing available — save 2 months free.
-        </p>
-        <div className="mt-12 grid gap-8 md:grid-cols-3">
-          {plans.map((plan) => (
-            <div
-              key={plan.name}
-              className={`relative flex flex-col rounded-xl border p-6 ${
-                plan.highlight
-                  ? 'border-[var(--color-accent-brand)] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.04)]'
-                  : 'border-[var(--color-border)]'
-              } bg-[var(--color-surface)]`}
-            >
-              {plan.highlight && (
-                <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 bg-[var(--color-accent-brand)] text-white hover:bg-[var(--color-accent-brand)]">
-                  Most popular
-                </Badge>
-              )}
-              <h3 className="text-base font-medium text-[var(--color-text-primary)]">
-                {plan.name}
-              </h3>
-              <div className="mt-3 flex items-baseline gap-1">
-                <span className="text-[30px] font-semibold text-[var(--color-text-primary)]">
-                  {plan.price}
-                </span>
-                {plan.period && (
-                  <span className="text-sm text-[var(--color-text-secondary)]">
-                    {plan.period}
-                  </span>
-                )}
-              </div>
-              <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
-                {plan.description}
-              </p>
-              <Separator className="my-6" />
-              <ul className="flex flex-1 flex-col gap-3">
-                {plan.features.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm text-[var(--color-text-primary)]">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--color-success)]" strokeWidth={1.5} />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              <Button
-                className="mt-8 w-full"
-                variant={plan.highlight ? 'default' : 'outline'}
-                asChild
-              >
-                <Link href={plan.href}>
-                  {plan.cta}
-                  <ArrowRight className="ml-2 h-4 w-4" strokeWidth={1.5} />
-                </Link>
-              </Button>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
 const faqItems = [
   {
-    question: 'What types of diagrams can I create?',
-    answer:
-      'Flowmapr supports BPMN 2.0 diagrams (tasks, gateways, events, pools, lanes) and User Flow / Journey Maps. More diagram types are planned for future releases.',
+    q: 'What diagram types does Flowmapr support?',
+    a: 'BPMN 2.0 (with swimlanes, gateways, events), UML Sequence, ERD, Flowchart, C4 Architecture, and API Lens for interactive API docs from OpenAPI specs.',
   },
   {
-    question: 'How do AI generation credits work?',
-    answer:
-      'Each time you generate a diagram from a text prompt, it uses 1 credit. Re-prompting an existing diagram also costs 1 credit. Credits reset monthly on your billing anniversary date. Free trial credits (2) are a lifetime allowance.',
+    q: 'How do AI generation credits work?',
+    a: 'Each text-to-diagram generation uses 1 credit. Re-prompting costs 1 credit. Credits reset monthly. Free trial credits are a lifetime allowance.',
   },
   {
-    question: 'Can I cancel my subscription anytime?',
-    answer:
-      'Yes. You can cancel anytime from your account settings. You\'ll keep access to your paid features until the end of your current billing period, then your account reverts to Free Trial limits.',
+    q: 'Can I cancel my subscription anytime?',
+    a: "Yes. Cancel anytime from account settings. You'll keep access until end of billing period, then revert to Free Trial limits.",
   },
   {
-    question: 'Is my data private and secure?',
-    answer:
-      'Yes. Your diagrams are private by default and only visible to you. You can optionally create a public read-only link to share specific diagrams. We use Supabase with row-level security so users can only access their own data.',
+    q: 'Is my data private?',
+    a: 'Yes. Diagrams are private by default with row-level security. Only you can see them unless you create a public share link.',
   },
   {
-    question: 'What happens when I run out of credits?',
-    answer:
-      'You can still view, edit, and export your existing diagrams. You just won\'t be able to generate new diagrams from text prompts until your credits reset or you upgrade your plan.',
+    q: 'What is API Lens?',
+    a: 'API Lens takes an OpenAPI spec, Swagger file, or description of API endpoints and turns it into interactive documentation with an architecture diagram showing how services connect.',
   },
 ]
 
-function FAQ() {
-  return (
-    <section className="py-[48px]">
-      <div className="mx-auto max-w-2xl px-6">
-        <h2 className="text-center text-[30px] font-semibold text-[var(--color-text-primary)]">
-          Frequently asked questions
-        </h2>
-        <Accordion type="single" collapsible className="mt-10">
-          {faqItems.map((item, i) => (
-            <AccordionItem key={i} value={`faq-${i}`}>
-              <AccordionTrigger className="text-left text-sm font-medium text-[var(--color-text-primary)]">
-                {item.question}
-              </AccordionTrigger>
-              <AccordionContent className="text-sm leading-relaxed text-[var(--color-text-secondary)]">
-                {item.answer}
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      </div>
-    </section>
-  )
-}
-
-function Footer() {
-  return (
-    <footer className="border-t border-[var(--color-border)] bg-[var(--color-surface)] py-8">
-      <div className="mx-auto flex max-w-6xl flex-col items-center gap-4 px-6 sm:flex-row sm:justify-between">
-        <span className="text-base font-semibold text-[var(--color-accent-brand)]">
-          flowmapr
-        </span>
-        <div className="flex gap-6 text-sm text-[var(--color-text-secondary)]">
-          <a href="#" className="transition-colors hover:text-[var(--color-text-primary)]">
-            Privacy Policy
-          </a>
-          <a href="#" className="transition-colors hover:text-[var(--color-text-primary)]">
-            Terms of Service
-          </a>
-        </div>
-        <span className="text-xs text-[var(--color-text-disabled)]">
-          &copy; {new Date().getFullYear()} Flowmapr. All rights reserved.
-        </span>
-      </div>
-    </footer>
-  )
-}
+const sectionTitle = (text: string) => (
+  <h2 style={{
+    fontSize: 36, fontWeight: 800, fontFamily: 'Inter, sans-serif',
+    letterSpacing: '-0.03em', color: '#F1F5F9', textAlign: 'center', lineHeight: 1.15,
+    marginBottom: 0,
+  }}>
+    {text}
+  </h2>
+)
 
 export default function LandingPage() {
   return (
-    <div className="min-h-screen bg-[var(--color-bg)]">
-      <Navbar />
-      <Hero />
-      <Problem />
-      <HowItWorks />
-      <Pricing />
-      <FAQ />
-      <Footer />
+    <div style={{ minHeight: '100vh', background: '#09090B', color: '#F1F5F9', position: 'relative', overflowX: 'hidden' }}>
+      <AuroraBackground />
+      <CodeRain />
+      <LandingNav />
+
+      {/* Hero */}
+      <section style={{ paddingTop: 120, paddingBottom: 80, textAlign: 'center', position: 'relative', zIndex: 1 }}>
+        <div style={{ maxWidth: 700, margin: '0 auto', padding: '0 24px' }}>
+          <div style={{
+            display: 'inline-flex', alignItems: 'center', gap: 8, padding: '6px 16px',
+            borderRadius: 100, background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)',
+            fontSize: 12, fontWeight: 600, color: '#A78BFA', fontFamily: 'Inter, sans-serif',
+            marginBottom: 28, letterSpacing: '0.04em',
+          }}>
+            ✦ Now with API Lens — turn OpenAPI specs into living docs
+          </div>
+          <h1 style={{
+            fontSize: 'clamp(38px, 6vw, 62px)', fontWeight: 900, fontFamily: 'Inter, sans-serif',
+            letterSpacing: '-0.04em', lineHeight: 1.1, color: '#F8FAFC',
+            marginBottom: 20,
+          }}>
+            Turn requirements<br />into diagrams.{' '}
+            <span style={{
+              background: 'linear-gradient(135deg, #6366F1, #A78BFA)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            }}>
+              Instantly.
+            </span>
+          </h1>
+          <p style={{ fontSize: 18, color: '#94A3B8', fontFamily: 'Inter, sans-serif', lineHeight: 1.6, marginBottom: 40, maxWidth: 520, margin: '0 auto 40px' }}>
+            Generate professional BPMN, UML Sequence, ERD, Flowchart, C4 and API docs from plain text.
+            No code. No Visio. No moving boxes for 40 minutes.
+          </p>
+          <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
+            <Link href="/signup" style={{
+              padding: '14px 32px', borderRadius: 10, fontSize: 15, fontWeight: 700,
+              background: 'linear-gradient(135deg, #6366F1, #8B5CF6)', color: 'white',
+              textDecoration: 'none', fontFamily: 'Inter, sans-serif',
+              boxShadow: '0 8px 32px rgba(99,102,241,0.4)', display: 'inline-flex', alignItems: 'center', gap: 8,
+            }}>
+              Try free — no card required
+              <ArrowRight size={16} />
+            </Link>
+            <a href="#how-it-works" style={{
+              padding: '14px 28px', borderRadius: 10, fontSize: 15, fontWeight: 600,
+              background: 'rgba(255,255,255,0.06)', color: '#E2E8F0',
+              border: '1px solid rgba(255,255,255,0.1)', textDecoration: 'none', fontFamily: 'Inter, sans-serif',
+            }}>
+              See how it works
+            </a>
+          </div>
+        </div>
+
+        {/* Hero diagram */}
+        <div style={{ maxWidth: 900, margin: '60px auto 0', padding: '0 24px', position: 'relative', zIndex: 1 }}>
+          <MorphingDiagram />
+        </div>
+      </section>
+
+      {/* Diagram types */}
+      <section style={{ padding: '80px 0', position: 'relative', zIndex: 1 }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 24px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 48 }}>
+            {sectionTitle('Every diagram type you need')}
+            <p style={{ marginTop: 12, color: '#71717A', fontFamily: 'Inter, sans-serif', fontSize: 15 }}>
+              From business processes to API documentation — all in one tool.
+            </p>
+          </div>
+          <DiagramTypesGrid />
+        </div>
+      </section>
+
+      {/* How it works */}
+      <section id="how-it-works" style={{ padding: '80px 0', position: 'relative', zIndex: 1, background: 'rgba(255,255,255,0.01)', borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 24px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 48 }}>
+            {sectionTitle('How it works')}
+          </div>
+          <HowItWorksCards />
+        </div>
+      </section>
+
+      {/* Pricing */}
+      <section id="pricing" style={{ padding: '80px 0', position: 'relative', zIndex: 1 }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 24px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 12 }}>
+            {sectionTitle('Simple, transparent pricing')}
+          </div>
+          <p style={{ textAlign: 'center', color: '#71717A', fontFamily: 'Inter, sans-serif', fontSize: 14, marginBottom: 48 }}>
+            Annual billing available — save 2 months free.
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
+            {plans.map(plan => (
+              <div key={plan.name} style={{
+                padding: 28, borderRadius: 14, position: 'relative',
+                background: plan.highlight ? 'rgba(99,102,241,0.06)' : 'rgba(255,255,255,0.02)',
+                border: plan.highlight ? '1.5px solid rgba(99,102,241,0.4)' : '1px solid rgba(255,255,255,0.07)',
+                boxShadow: plan.highlight ? '0 0 40px rgba(99,102,241,0.08)' : 'none',
+                display: 'flex', flexDirection: 'column',
+              }}>
+                {plan.badge && (
+                  <div style={{
+                    position: 'absolute', top: -12, left: '50%', transform: 'translateX(-50%)',
+                    padding: '4px 14px', borderRadius: 100,
+                    background: 'linear-gradient(135deg, #6366F1, #A78BFA)',
+                    fontSize: 11, fontWeight: 700, color: 'white', fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap',
+                  }}>
+                    {plan.badge}
+                  </div>
+                )}
+                <div style={{ fontSize: 15, fontWeight: 700, color: '#F1F5F9', fontFamily: 'Inter, sans-serif', marginBottom: 8 }}>{plan.name}</div>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 6 }}>
+                  <span style={{ fontSize: 36, fontWeight: 800, color: '#F8FAFC', fontFamily: 'Inter, sans-serif', letterSpacing: '-0.04em' }}>{plan.price}</span>
+                  {plan.period && <span style={{ fontSize: 13, color: '#71717A', fontFamily: 'Inter, sans-serif' }}>{plan.period}</span>}
+                </div>
+                <p style={{ fontSize: 12, color: '#71717A', fontFamily: 'Inter, sans-serif', marginBottom: 16 }}>{plan.desc}</p>
+                <div style={{ borderTop: '1px solid rgba(255,255,255,0.06)', margin: '0 0 16px' }} />
+                <ul style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 10, listStyle: 'none', padding: 0, margin: '0 0 24px' }}>
+                  {plan.features.map(f => (
+                    <li key={f} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, fontSize: 13, color: '#94A3B8', fontFamily: 'Inter, sans-serif' }}>
+                      <Check size={14} style={{ color: '#22C55E', marginTop: 1, flexShrink: 0 }} />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+                <Link href={plan.href} style={{
+                  display: 'block', textAlign: 'center', padding: '11px 0', borderRadius: 9,
+                  background: plan.highlight ? 'linear-gradient(135deg, #6366F1, #8B5CF6)' : 'rgba(255,255,255,0.06)',
+                  color: plan.highlight ? 'white' : '#94A3B8', fontWeight: 600, fontSize: 13,
+                  border: plan.highlight ? 'none' : '1px solid rgba(255,255,255,0.08)',
+                  textDecoration: 'none', fontFamily: 'Inter, sans-serif',
+                  boxShadow: plan.highlight ? '0 4px 20px rgba(99,102,241,0.3)' : 'none',
+                }}>
+                  {plan.cta}
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ */}
+      <section id="faq" style={{ padding: '80px 0', position: 'relative', zIndex: 1, background: 'rgba(255,255,255,0.01)', borderTop: '1px solid rgba(255,255,255,0.05)', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+        <div style={{ maxWidth: 680, margin: '0 auto', padding: '0 24px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 48 }}>
+            {sectionTitle('Frequently asked questions')}
+          </div>
+          <Accordion type="single" collapsible>
+            {faqItems.map((item, i) => (
+              <AccordionItem key={i} value={`faq-${i}`} style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
+                <AccordionTrigger style={{ fontSize: 14, fontFamily: 'Inter, sans-serif', color: '#E2E8F0', textAlign: 'left' }}>
+                  {item.q}
+                </AccordionTrigger>
+                <AccordionContent style={{ fontSize: 13, color: '#71717A', fontFamily: 'Inter, sans-serif', lineHeight: 1.6 }}>
+                  {item.a}
+                </AccordionContent>
+              </AccordionItem>
+            ))}
+          </Accordion>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer style={{ padding: '40px 24px', borderTop: '1px solid rgba(255,255,255,0.06)', position: 'relative', zIndex: 1 }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+            <span style={{
+              fontSize: 16, fontWeight: 800, fontFamily: 'Inter, sans-serif',
+              background: 'linear-gradient(135deg, #6366F1, #A78BFA)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+            }}>
+              flowmapr
+            </span>
+            <span style={{ color: '#3F3F46', fontSize: 12, fontFamily: 'Inter, sans-serif' }}>
+              © {new Date().getFullYear()}
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
+            {[
+              { label: 'Privacy Policy', href: '/privacy' },
+              { label: 'Terms of Service', href: '/terms' },
+            ].map(({ label, href }) => (
+              <a key={label} href={href} style={{ fontSize: 12, color: '#52525B', fontFamily: 'Inter, sans-serif', textDecoration: 'none' }}>
+                {label}
+              </a>
+            ))}
+            <SocialLinks />
+          </div>
+        </div>
+      </footer>
+
+      <BackToTop />
     </div>
   )
 }

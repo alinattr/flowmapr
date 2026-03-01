@@ -33,10 +33,30 @@ import { UfScreenNode } from '@/components/diagram/nodes/UfScreenNode'
 import { UfDecisionNode } from '@/components/diagram/nodes/UfDecisionNode'
 import { UfActionNode } from '@/components/diagram/nodes/UfActionNode'
 import { UmlClassNode } from '@/components/diagram/nodes/UmlClassNode'
+import { SeqParticipantNode } from '@/components/diagram/nodes/sequence/SeqParticipantNode'
+import { SeqMessageNode } from '@/components/diagram/nodes/sequence/SeqMessageNode'
+import { SeqFragmentNode } from '@/components/diagram/nodes/sequence/SeqFragmentNode'
+import { SeqActivationNode } from '@/components/diagram/nodes/sequence/SeqActivationNode'
+import { FcStartNode } from '@/components/diagram/nodes/flowchart/FcStartNode'
+import { FcEndNode } from '@/components/diagram/nodes/flowchart/FcEndNode'
+import { FcProcessNode } from '@/components/diagram/nodes/flowchart/FcProcessNode'
+import { FcDecisionNode } from '@/components/diagram/nodes/flowchart/FcDecisionNode'
+import { FcDataNode } from '@/components/diagram/nodes/flowchart/FcDataNode'
+import { FcSubprocessNode } from '@/components/diagram/nodes/flowchart/FcSubprocessNode'
+import { C4PersonNode } from '@/components/diagram/nodes/c4/C4PersonNode'
+import { C4ContainerNode } from '@/components/diagram/nodes/c4/C4ContainerNode'
+import { C4BoundaryNode } from '@/components/diagram/nodes/c4/C4BoundaryNode'
+import { C4SystemExtNode } from '@/components/diagram/nodes/c4/C4SystemExtNode'
+import { ErdEntityNode } from '@/components/diagram/nodes/erd/ErdEntityNode'
 import { DiagramTopBar } from '@/components/diagram/DiagramTopBar'
 import { PromptPanel } from '@/components/diagram/PromptPanel'
 import { UmlClassPanel } from '@/components/diagram/UmlClassPanel'
 import { GenerationLoader } from '@/components/shared/GenerationLoader'
+import { generatePreviewSvg } from '@/lib/diagram/generatePreviewSvg'
+import { fixBpmnLayout } from '@/lib/diagram/bpmn/fixBpmnLayout'
+import { generateBpmnXml } from '@/lib/diagram/bpmn/generateBpmnXml'
+import { parseBpmnXml } from '@/lib/diagram/bpmn/parseBpmnXml'
+import { Eye, Columns, Code2, Copy, Check, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 const nodeTypes = {
@@ -50,6 +70,21 @@ const nodeTypes = {
   ufDecision: UfDecisionNode,
   ufAction: UfActionNode,
   umlClass: UmlClassNode,
+  seqParticipant: SeqParticipantNode,
+  seqMessage: SeqMessageNode,
+  seqFragment: SeqFragmentNode,
+  seqActivation: SeqActivationNode,
+  fcStart: FcStartNode,
+  fcEnd: FcEndNode,
+  fcProcess: FcProcessNode,
+  fcDecision: FcDecisionNode,
+  fcData: FcDataNode,
+  fcSubprocess: FcSubprocessNode,
+  c4Person: C4PersonNode,
+  c4Container: C4ContainerNode,
+  c4Boundary: C4BoundaryNode,
+  c4SystemExt: C4SystemExtNode,
+  'erd-entity': ErdEntityNode,
 }
 
 function minimapNodeColor(node: Node) {
@@ -90,14 +125,22 @@ function DiagramCanvasInner({
 }: DiagramCanvasProps) {
   const router = useRouter()
   const reactFlowInstance = useReactFlow()
-  const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes)
+  const [nodes, setNodes, onNodesChange] = useNodesState(
+    diagramType === 'bpmn' ? fixBpmnLayout(initialNodes as Parameters<typeof fixBpmnLayout>[0]) as typeof initialNodes : initialNodes
+  )
   const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges)
   const [title, setTitle] = useState(initialTitle)
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | null>(
     'saved'
   )
   const [regenerating, setRegenerating] = useState(false)
+  const [viewMode, setViewMode] = useState<'visual' | 'split' | 'code'>('visual')
+  const [codeText, setCodeText] = useState('')
+  const [codeError, setCodeError] = useState<string | null>(null)
+  const [codeCopied, setCodeCopied] = useState(false)
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const codeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const isBpmn = diagramType === 'bpmn'
 
   useEffect(() => {
     if (nodes.length > 0 && reactFlowInstance) {
@@ -108,14 +151,49 @@ function DiagramCanvasInner({
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  useEffect(() => {
+    if (isBpmn && (viewMode === 'code' || viewMode === 'split')) {
+      setCodeText(generateBpmnXml(nodes, edges, title))
+      setCodeError(null)
+    }
+  }, [viewMode]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function handleCodeChange(text: string) {
+    setCodeText(text)
+    if (codeDebounceRef.current) clearTimeout(codeDebounceRef.current)
+    codeDebounceRef.current = setTimeout(() => {
+      try {
+        const { nodes: parsed, edges: parsedEdges } = parseBpmnXml(text)
+        if (parsed.length === 0) {
+          setCodeError('No BPMN elements found — check XML structure')
+          return
+        }
+        setCodeError(null)
+        setNodes(parsed)
+        setEdges(parsedEdges)
+        debouncedSave()
+      } catch (e) {
+        setCodeError(e instanceof Error ? e.message : 'Invalid BPMN XML')
+      }
+    }, 500)
+  }
+
+  function handleCopyCode() {
+    navigator.clipboard.writeText(codeText)
+    setCodeCopied(true)
+    setTimeout(() => setCodeCopied(false), 2000)
+  }
+
   const saveToSupabase = useCallback(async () => {
     setSaveStatus('saving')
     const supabase = createClient()
+    const preview_svg = generatePreviewSvg(nodes, edges)
     await supabase
       .from('diagrams')
       .update({
         title,
         flow_data: { nodes, edges },
+        preview_svg: preview_svg || null,
       })
       .eq('id', diagramId)
     setSaveStatus('saved')
@@ -223,6 +301,17 @@ function DiagramCanvasInner({
     return <GenerationLoader />
   }
 
+  const tabStyle = (active: boolean): React.CSSProperties => ({
+    display: 'flex', alignItems: 'center', gap: 6,
+    padding: '6px 14px', fontSize: 12, fontWeight: 500, cursor: 'pointer',
+    borderRadius: 6, border: 'none', transition: 'all 0.15s',
+    background: active ? 'var(--color-accent-subtle, rgba(99,102,241,0.15))' : 'transparent',
+    color: active ? 'var(--color-accent-brand, #818CF8)' : 'var(--color-text-secondary, #94A3B8)',
+  })
+
+  const showCodePane = isBpmn && (viewMode === 'code' || viewMode === 'split')
+  const showVisualPane = !isBpmn || viewMode === 'visual' || viewMode === 'split'
+
   return (
     <div className="flex h-screen flex-col bg-[var(--color-bg)]">
       <DiagramTopBar
@@ -239,69 +328,169 @@ function DiagramCanvasInner({
         nodes={nodes}
         edges={edges}
       />
-      <div className="relative flex-1">
-        <ReactFlow
-          nodes={nodes}
-          edges={edges}
-          onNodesChange={handleNodesChange}
-          onEdgesChange={handleEdgesChange}
-          onConnect={handleConnect}
-          onReconnect={handleReconnect}
-          reconnectRadius={25}
-          nodeTypes={nodeTypes}
-          fitView
-          fitViewOptions={{ padding: 0.15, minZoom: 0.3, maxZoom: 1.5 }}
-          minZoom={0.1}
-          maxZoom={2}
-          elevateEdgesOnSelect
-          elevateNodesOnSelect={false}
-          defaultEdgeOptions={{
-            type: 'smoothstep',
-            style: { stroke: 'var(--color-diagram-edge)', strokeWidth: 1.5 },
-            markerEnd: {
-              type: MarkerType.ArrowClosed,
-              width: 16,
-              height: 16,
-              color: 'var(--color-diagram-edge)',
-            },
-          }}
-          proOptions={{ hideAttribution: true }}
-        >
-          <Background color="var(--color-diagram-grid)" gap={20} size={1} />
-          <Controls />
-          <MiniMap
-            nodeColor={minimapNodeColor}
-            maskColor="rgba(250,250,250,0.8)"
-          />
-        </ReactFlow>
 
-        <PromptPanel
-          initialPrompt={initialPrompt ?? ''}
-          diagramType={diagramType}
-          onRegenerate={handleRegenerate}
-        />
+      {/* Tabs — only for BPMN */}
+      {isBpmn && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 4,
+          padding: '6px 16px',
+          borderBottom: '1px solid var(--color-border, rgba(255,255,255,0.06))',
+          background: 'var(--color-surface, #111)',
+        }}>
+          <button style={tabStyle(viewMode === 'visual')} onClick={() => setViewMode('visual')}>
+            <Eye size={14} /> Visual
+          </button>
+          <button style={tabStyle(viewMode === 'split')} onClick={() => setViewMode('split')}>
+            <Columns size={14} /> Split
+          </button>
+          <button style={tabStyle(viewMode === 'code')} onClick={() => setViewMode('code')}>
+            <Code2 size={14} /> Code
+          </button>
+        </div>
+      )}
 
-        {diagramType === 'uml_class' &&
-          (() => {
-            const selected = nodes.find(
-              (n) => n.type === 'umlClass' && n.selected
-            )
-            if (!selected) return null
-            return (
-              <UmlClassPanel
-                selectedNode={selected}
-                onDeleteNode={(nodeId) => {
-                  setNodes((nds) => nds.filter((n) => n.id !== nodeId))
-                  setEdges((eds) =>
-                    eds.filter(
-                      (e) => e.source !== nodeId && e.target !== nodeId
-                    )
-                  )
-                  debouncedSave()
-                }}
+      <div className="relative flex-1" style={{ display: 'flex', overflow: 'hidden' }}>
+        {/* Visual pane */}
+        {showVisualPane && (
+          <div
+            className={
+              diagramType === 'c4_l1' || diagramType === 'c4_l2' ? 'c4-diagram' :
+              diagramType === 'erd' ? 'erd-diagram' : undefined
+            }
+            style={{
+              flex: isBpmn && viewMode === 'split' ? 1 : undefined,
+              width: !isBpmn || viewMode === 'visual' ? '100%' : undefined,
+              position: 'relative', height: '100%',
+            }}
+          >
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              onNodesChange={handleNodesChange}
+              onEdgesChange={handleEdgesChange}
+              onConnect={handleConnect}
+              onReconnect={handleReconnect}
+              reconnectRadius={25}
+              nodeTypes={nodeTypes}
+              fitView
+              fitViewOptions={{ padding: 0.15, minZoom: 0.3, maxZoom: 1.5 }}
+              minZoom={0.1}
+              maxZoom={2}
+              elevateEdgesOnSelect
+              elevateNodesOnSelect={false}
+              defaultEdgeOptions={{
+                type: 'smoothstep',
+                style: { stroke: 'var(--color-diagram-edge)', strokeWidth: 1.5 },
+                markerEnd: {
+                  type: MarkerType.ArrowClosed,
+                  width: 16,
+                  height: 16,
+                  color: 'var(--color-diagram-edge)',
+                },
+              }}
+              proOptions={{ hideAttribution: true }}
+            >
+              <Background color="var(--color-diagram-grid)" gap={20} size={1} />
+              <Controls />
+              <MiniMap
+                nodeColor={minimapNodeColor}
+                maskColor="rgba(250,250,250,0.8)"
               />
-            )
-          })()}
+            </ReactFlow>
+
+            <PromptPanel
+              initialPrompt={initialPrompt ?? ''}
+              diagramType={diagramType}
+              onRegenerate={handleRegenerate}
+            />
+
+            {diagramType === 'uml_class' &&
+              (() => {
+                const selected = nodes.find(
+                  (n) => n.type === 'umlClass' && n.selected
+                )
+                if (!selected) return null
+                return (
+                  <UmlClassPanel
+                    selectedNode={selected}
+                    onDeleteNode={(nodeId) => {
+                      setNodes((nds) => nds.filter((n) => n.id !== nodeId))
+                      setEdges((eds) =>
+                        eds.filter(
+                          (e) => e.source !== nodeId && e.target !== nodeId
+                        )
+                      )
+                      debouncedSave()
+                    }}
+                  />
+                )
+              })()}
+          </div>
+        )}
+
+        {/* Code pane — BPMN XML */}
+        {showCodePane && (
+          <div style={{
+            flex: viewMode === 'split' ? 1 : undefined,
+            width: viewMode === 'code' ? '100%' : undefined,
+            display: 'flex', flexDirection: 'column',
+            borderLeft: viewMode === 'split' ? '1px solid var(--color-border, rgba(255,255,255,0.06))' : 'none',
+            background: 'var(--color-surface, #111)',
+          }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '8px 12px',
+              borderBottom: '1px solid var(--color-border, rgba(255,255,255,0.06))',
+            }}>
+              <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--color-text-secondary)', letterSpacing: 0.5, textTransform: 'uppercase' }}>
+                BPMN 2.0 XML
+              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                {codeError && (
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: '#F87171' }}>
+                    <AlertCircle size={12} /> {codeError}
+                  </span>
+                )}
+                <button
+                  onClick={handleCopyCode}
+                  style={{
+                    display: 'flex', alignItems: 'center', gap: 4,
+                    padding: '4px 10px', fontSize: 11, fontWeight: 500,
+                    borderRadius: 4, border: '1px solid var(--color-border)',
+                    background: 'transparent', cursor: 'pointer',
+                    color: 'var(--color-text-secondary)',
+                  }}
+                >
+                  {codeCopied ? <Check size={12} /> : <Copy size={12} />}
+                  {codeCopied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+            </div>
+
+            <div style={{
+              padding: '6px 12px',
+              fontSize: 10, color: 'var(--color-text-secondary, #64748B)',
+              borderBottom: '1px solid var(--color-border, rgba(255,255,255,0.04))',
+            }}>
+              Compatible with Camunda, bpmn.io, and any BPMN 2.0 tool
+            </div>
+
+            <textarea
+              value={codeText}
+              onChange={e => handleCodeChange(e.target.value)}
+              spellCheck={false}
+              style={{
+                flex: 1, resize: 'none', padding: 16,
+                fontFamily: 'JetBrains Mono, Fira Code, monospace',
+                fontSize: 12, lineHeight: 1.6, tabSize: 2,
+                background: 'transparent',
+                color: 'var(--color-text-primary, #E2E8F0)',
+                border: 'none', outline: 'none',
+                borderLeft: codeError ? '3px solid #F87171' : '3px solid transparent',
+              }}
+            />
+          </div>
+        )}
       </div>
     </div>
   )

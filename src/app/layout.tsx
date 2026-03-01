@@ -2,6 +2,8 @@ import type { Metadata } from 'next'
 import { Inter, JetBrains_Mono } from 'next/font/google'
 import { Toaster } from 'sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
+import { ThemeProvider } from '@/lib/theme/ThemeProvider'
+import { CrispChat } from '@/components/CrispChat'
 import './globals.css'
 
 const inter = Inter({
@@ -17,7 +19,8 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Flowmapr — Turn requirements into diagrams',
   description:
-    'Generate professional BPMN and User Flow diagrams from plain-text descriptions. No code. No Visio.',
+    'Generate professional BPMN, UML Sequence, ERD, Flowchart, C4 and API docs from plain text. No code. No Visio.',
+  icons: { icon: '/favicon.svg' },
 }
 
 export default function RootLayout({
@@ -26,14 +29,17 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" data-theme="dark">
       <body
         className={`${inter.variable} ${jetbrainsMono.variable} font-sans antialiased`}
       >
-        <TooltipProvider>
-          {children}
-        </TooltipProvider>
-        <Toaster position="bottom-right" richColors closeButton />
+        <ThemeProvider>
+          <TooltipProvider>
+            {children}
+          </TooltipProvider>
+          <Toaster position="bottom-right" richColors closeButton />
+        </ThemeProvider>
+        <CrispChat />
       </body>
     </html>
   )

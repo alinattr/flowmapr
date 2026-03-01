@@ -1,4 +1,5 @@
 import { LoginForm } from '@/components/auth/LoginForm'
+import { CodeRain } from '@/components/landing/CodeRain'
 
 export const metadata = {
   title: 'Log in — Flowmapr',
@@ -6,32 +7,75 @@ export const metadata = {
 
 export default function LoginPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[var(--color-bg)]">
-      <div className="w-full max-w-sm space-y-6 px-4">
-        <div className="space-y-2 text-center">
-          <h1
-            className="text-[30px] font-semibold tracking-tight"
-            style={{ color: 'var(--color-text-primary)' }}
-          >
-            Welcome back
-          </h1>
-          <p
-            className="text-sm"
-            style={{ color: 'var(--color-text-secondary)' }}
-          >
-            Log in to your Flowmapr account
-          </p>
+    <div style={{
+      minHeight: '100vh',
+      background: '#09090B',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      fontFamily: 'Inter, sans-serif',
+      position: 'relative',
+    }}>
+      <CodeRain />
+
+      <div style={{
+        width: '100%',
+        maxWidth: 400,
+        padding: '0 24px',
+        position: 'relative',
+        zIndex: 1,
+      }}>
+        {/* Card */}
+        <div style={{
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: 16,
+          padding: '36px 32px',
+          backdropFilter: 'blur(12px)',
+          boxShadow: '0 0 60px rgba(99,102,241,0.08)',
+        }}>
+          {/* Header */}
+          <div style={{ textAlign: 'center', marginBottom: 28 }}>
+            <div style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 8,
+              marginBottom: 20,
+            }}>
+              {/* Logo mark */}
+              <div style={{
+                width: 32, height: 32, borderRadius: 8,
+                background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 16, fontWeight: 700, color: '#fff',
+              }}>F</div>
+              <span style={{ fontSize: 16, fontWeight: 700, color: '#F1F5F9' }}>Flowmapr</span>
+            </div>
+            <h1 style={{
+              fontSize: 24, fontWeight: 700,
+              color: '#F8FAFC', margin: '0 0 6px',
+            }}>
+              Welcome back
+            </h1>
+            <p style={{ fontSize: 13, color: '#71717A', margin: 0 }}>
+              Log in to your Flowmapr account
+            </p>
+          </div>
+
+          <LoginForm />
         </div>
-        <LoginForm />
-        <p
-          className="text-center text-sm"
-          style={{ color: 'var(--color-text-secondary)' }}
-        >
-          Don&apos;t have an account?{' '}
+
+        {/* Footer link */}
+        <p style={{ textAlign: 'center', marginTop: 20, fontSize: 13 }}>
+          <span style={{ color: '#52525B' }}>Don&apos;t have an account? </span>
           <a
             href="/signup"
-            className="font-medium"
-            style={{ color: 'var(--color-accent)' }}
+            style={{
+              color: '#818CF8',
+              fontWeight: 500,
+              textDecoration: 'none',
+              borderBottom: '1px solid rgba(99,102,241,0.3)',
+            }}
           >
             Sign up
           </a>

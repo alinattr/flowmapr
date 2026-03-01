@@ -1,28 +1,56 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { AppSidebar } from '@/components/shared/AppSidebar'
 import { GenerateDialog } from '@/components/workspace/GenerateDialog'
+import { WorkspaceToolbar, type SortOption, type ViewMode } from '@/components/workspace/WorkspaceToolbar'
 import { Button } from '@/components/ui/button'
-import { GitBranch, Sparkles, FileText, MoreHorizontal, Trash2 } from 'lucide-react'
+import { GitBranch, Sparkles, FileText, MoreHorizontal, Trash2, FolderInput } from 'lucide-react'
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
-import { useRouter } from 'next/navigation'
+import type { DiagramSummary, Folder } from '@/types/diagram'
+import { moveDiagramToFolder, createFolder, getFolders, deleteFolder, renameFolder, updateFolderColor } from '@/lib/folders/folderService'
 
-interface DiagramSummary {
-  id: string
-  title: string
-  diagram_type: string
-  updated_at: string
-  created_at: string
+function diagramPath(d: { id: string; diagram_type: string }) {
+  if (d.diagram_type === 'api_lens') return `/api-lens/${d.id}`
+  if (d.diagram_type === 'uml_sequence') return `/sequence/${d.id}`
+  return `/diagram/${d.id}`
+}
+
+const TYPE_BADGE_STYLES: Record<string, { bg: string; color: string; label: string }> = {
+  bpmn:         { bg: 'rgba(99,102,241,0.15)',  color: '#818CF8', label: 'BPMN' },
+  uml_sequence: { bg: 'rgba(34,197,94,0.15)',   color: '#4ADE80', label: 'UML Seq' },
+  erd:          { bg: 'rgba(59,130,246,0.15)',  color: '#60A5FA', label: 'ERD' },
+  flowchart:    { bg: 'rgba(245,158,11,0.15)',  color: '#FCD34D', label: 'Flowchart' },
+  c4_l1:        { bg: 'rgba(167,139,250,0.15)', color: '#C4B5FD', label: 'C4 (L1)' },
+  c4_l2:        { bg: 'rgba(139,92,246,0.15)',  color: '#A78BFA', label: 'C4 (L2)' },
+  api_lens:     { bg: 'rgba(6,182,212,0.15)',   color: '#67E8F9', label: 'API Lens' },
+}
+
+function getTypeStyle(type: string) {
+  return TYPE_BADGE_STYLES[type] ?? { bg: 'rgba(113,113,122,0.15)', color: '#71717A', label: type ?? 'Unknown' }
+}
+
+const TYPE_COLORS: Record<string, string> = {
+  bpmn: '#6366F1',
+  uml_sequence: '#22C55E',
+  erd: '#3B82F6',
+  flowchart: '#F59E0B',
+  c4_l1: '#A78BFA',
+  c4_l2: '#8B5CF6',
+  api_lens: '#06B6D4',
 }
 
 interface WorkspaceShellProps {
@@ -31,6 +59,7 @@ interface WorkspaceShellProps {
   generationsRemaining: number
   plan: string
   diagrams: DiagramSummary[]
+  folders: Folder[]
 }
 
 export function WorkspaceShell({
@@ -39,28 +68,25 @@ export function WorkspaceShell({
   generationsRemaining,
   plan,
   diagrams: initialDiagrams,
+  folders: initialFolders,
 }: WorkspaceShellProps) {
   const [generateOpen, setGenerateOpen] = useState(false)
   const [diagrams, setDiagrams] = useState(initialDiagrams)
-  const router = useRouter()
+  const [folders, setFolders] = useState(initialFolders)
+  const [activeFolder, setActiveFolder] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [sort, setSort] = useState<SortOption>('updated_desc')
+  const [view, setView] = useState<ViewMode>(() => {
+    if (typeof window !== 'undefined') return (localStorage.getItem('ws-view') as ViewMode) ?? 'grid'
+    return 'grid'
+  })
 
-  async function handleDelete(id: string) {
-    const supabase = createClient()
-    const { error } = await supabase.from('diagrams').delete().eq('id', id)
-    if (error) {
-      toast.error('Failed to delete diagram')
-      return
-    }
-    setDiagrams((prev) => prev.filter((d) => d.id !== id))
-    toast.success('Diagram deleted')
-  }
+  useEffect(() => { localStorage.setItem('ws-view', view) }, [view])
 
   function formatDate(dateStr: string) {
     const d = new Date(dateStr)
-    const now = new Date()
-    const diffMs = now.getTime() - d.getTime()
+    const diffMs = Date.now() - d.getTime()
     const diffMins = Math.floor(diffMs / 60000)
-
     if (diffMins < 1) return 'Just now'
     if (diffMins < 60) return `${diffMins}m ago`
     const diffHours = Math.floor(diffMins / 60)
@@ -70,118 +96,275 @@ export function WorkspaceShell({
     return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
   }
 
-  const hasDiagrams = diagrams.length > 0
+  async function handleDelete(id: string) {
+    const supabase = createClient()
+    const { error } = await supabase.from('diagrams').delete().eq('id', id)
+    if (error) { toast.error('Failed to delete'); return }
+    setDiagrams(prev => prev.filter(d => d.id !== id))
+    toast.success('Diagram deleted')
+  }
+
+  async function handleMove(diagramId: string, folderId: string | null) {
+    const ok = await moveDiagramToFolder(diagramId, folderId)
+    if (!ok) { toast.error('Failed to move'); return }
+    setDiagrams(prev => prev.map(d => d.id === diagramId ? { ...d, folder_id: folderId } : d))
+    toast.success(folderId ? 'Moved to folder' : 'Removed from folder')
+  }
+
+  async function handleCreateFolder(name: string) {
+    const folder = await createFolder(name)
+    if (folder) setFolders(prev => [...prev, folder])
+  }
+
+  async function handleDeleteFolder(id: string) {
+    const ok = await deleteFolder(id)
+    if (ok) {
+      setFolders(prev => prev.filter(f => f.id !== id))
+      setDiagrams(prev => prev.map(d => d.folder_id === id ? { ...d, folder_id: null } : d))
+      if (activeFolder === id) setActiveFolder(null)
+    }
+  }
+
+  async function handleRenameFolder(id: string, name: string) {
+    const ok = await renameFolder(id, name)
+    if (ok) setFolders(prev => prev.map(f => f.id === id ? { ...f, name } : f))
+  }
+
+  async function handleFolderColor(id: string, color: string) {
+    const ok = await updateFolderColor(id, color)
+    if (ok) setFolders(prev => prev.map(f => f.id === id ? { ...f, color } : f))
+  }
+
+  const filtered = useMemo(() => {
+    let d = [...diagrams]
+    if (activeFolder !== null) d = d.filter(x => x.folder_id === activeFolder)
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      d = d.filter(x => x.title.toLowerCase().includes(q) || x.diagram_type.toLowerCase().includes(q))
+    }
+    switch (sort) {
+      case 'updated_desc': d.sort((a, b) => b.updated_at.localeCompare(a.updated_at)); break
+      case 'updated_asc':  d.sort((a, b) => a.updated_at.localeCompare(b.updated_at)); break
+      case 'created_desc': d.sort((a, b) => b.created_at.localeCompare(a.created_at)); break
+      case 'name_asc':     d.sort((a, b) => a.title.localeCompare(b.title)); break
+    }
+    return d
+  }, [diagrams, search, sort, activeFolder])
+
+  const folderForActive = activeFolder ? folders.find(f => f.id === activeFolder) : null
+
+  function DiagramCard({ d }: { d: DiagramSummary }) {
+    const color = TYPE_COLORS[d.diagram_type] ?? '#6366F1'
+    return (
+      <div className="diagram-card group relative rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] transition-shadow hover:shadow-md"
+        style={{ overflow: 'hidden' }}>
+        <Link href={diagramPath(d)} className="block">
+          {/* Preview */}
+          <div style={{
+            height: 112, background: 'var(--color-surface-raised)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            overflow: 'hidden', borderBottom: '1px solid var(--color-border)',
+          }}>
+            {d.preview_svg ? (
+              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                dangerouslySetInnerHTML={{ __html: d.preview_svg }}
+              />
+            ) : (
+              <FileText className="h-8 w-8 text-[var(--color-text-tertiary)]" strokeWidth={1} />
+            )}
+          </div>
+          <div style={{ padding: '12px 14px' }}>
+            <p className="truncate text-sm font-medium text-[var(--color-text-primary)]">{d.title}</p>
+            <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+              {(() => { const s = getTypeStyle(d.diagram_type); return (
+                <span style={{
+                  padding: '2px 7px', borderRadius: 4, fontSize: 10, fontWeight: 600, fontFamily: 'Inter, sans-serif',
+                  background: s.bg, color: s.color,
+                }}>
+                  {s.label}
+                </span>
+              ) })()}
+              <span className="text-xs text-[var(--color-text-tertiary)]">{formatDate(d.updated_at)}</span>
+            </div>
+          </div>
+        </Link>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="absolute right-2 top-2 rounded-md p-1 opacity-0 transition-opacity hover:bg-[var(--color-surface-raised)] group-hover:opacity-100">
+              <MoreHorizontal className="h-4 w-4 text-[var(--color-text-secondary)]" strokeWidth={1.5} />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuSub>
+              <DropdownMenuSubTrigger>
+                <FolderInput className="mr-2 h-4 w-4" strokeWidth={1.5} />
+                Move to folder
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent>
+                <DropdownMenuItem onClick={() => handleMove(d.id, null)}>
+                  — No folder
+                </DropdownMenuItem>
+                {folders.map(f => (
+                  <DropdownMenuItem key={f.id} onClick={() => handleMove(d.id, f.id)}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: f.color, display: 'inline-block', marginRight: 8 }} />
+                    {f.name}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem className="text-[var(--color-danger)]" onClick={() => handleDelete(d.id)}>
+              <Trash2 className="mr-2 h-4 w-4" strokeWidth={1.5} />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen flex-col bg-[var(--color-bg)]">
-      <AppNavbar
-        email={email}
-        fullName={fullName}
-        generationsRemaining={generationsRemaining}
-      />
+      <AppNavbar email={email} fullName={fullName} generationsRemaining={generationsRemaining} />
       <div className="flex flex-1 overflow-hidden">
         <AppSidebar
           plan={plan}
           diagrams={diagrams}
+          folders={folders}
+          activeFolder={activeFolder}
           onNewDiagram={() => setGenerateOpen(true)}
+          onFolderSelect={setActiveFolder}
+          onFolderCreate={handleCreateFolder}
+          onFolderDelete={handleDeleteFolder}
+          onFolderRename={handleRenameFolder}
+          onFolderColor={handleFolderColor}
         />
         <main className="flex flex-1 flex-col overflow-auto">
-          {hasDiagrams ? (
-            <div className="p-6">
-              <div className="mb-6 flex items-center justify-between">
-                <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                  My diagrams
-                </h1>
-                <Button
-                  size="sm"
-                  className="gap-2"
-                  onClick={() => setGenerateOpen(true)}
-                >
-                  <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
-                  New diagram
-                </Button>
+          <div className="p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h1 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                {folderForActive ? folderForActive.name : 'My diagrams'}
+              </h1>
+              <button
+                onClick={() => setGenerateOpen(true)}
+                style={{
+                  background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+                  color: 'white', border: 'none', borderRadius: 10,
+                  padding: '9px 16px', fontSize: 13, fontWeight: 600,
+                  fontFamily: 'Inter, sans-serif',
+                  display: 'flex', alignItems: 'center', gap: 8,
+                  cursor: 'pointer',
+                  boxShadow: '0 0 20px rgba(99,102,241,0.3)',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <Sparkles size={14} strokeWidth={1.5} />
+                New diagram
+              </button>
+            </div>
+
+            <WorkspaceToolbar
+              search={search} sort={sort} view={view}
+              onSearch={setSearch} onSort={setSort} onView={setView}
+            />
+
+            {filtered.length === 0 && search.trim() ? (
+              <div className="flex flex-col items-center text-center pt-20" style={{ color: 'var(--color-text-secondary)' }}>
+                <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
+                <p style={{ fontSize: 14, fontFamily: 'Inter, sans-serif' }}>No diagrams match &ldquo;{search}&rdquo;</p>
+                <button onClick={() => setSearch('')} style={{ marginTop: 8, fontSize: 13, color: '#A78BFA', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline' }}>
+                  Clear search
+                </button>
               </div>
-
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {diagrams.map((d) => (
-                  <div
-                    key={d.id}
-                    className="group relative rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] transition-shadow hover:shadow-md"
-                  >
-                    <Link
-                      href={`/diagram/${d.id}`}
-                      className="block p-4"
-                    >
-                      <div className="mb-3 flex h-28 items-center justify-center rounded-lg bg-[var(--color-surface-raised)]">
-                        <FileText
-                          className="h-10 w-10 text-[var(--color-text-tertiary)]"
-                          strokeWidth={1}
-                        />
-                      </div>
-                      <p className="truncate text-sm font-medium text-[var(--color-text-primary)]">
-                        {d.title}
-                      </p>
-                      <div className="mt-1 flex items-center gap-2">
-                        <span className="rounded bg-[var(--color-accent-subtle)] px-1.5 py-0.5 text-[10px] font-medium uppercase text-[var(--color-accent-brand)]">
-                          {d.diagram_type === 'bpmn' ? 'BPMN' : 'User Flow'}
-                        </span>
-                        <span className="text-xs text-[var(--color-text-tertiary)]">
-                          {formatDate(d.updated_at)}
-                        </span>
-                      </div>
-                    </Link>
-
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="absolute right-2 top-2 rounded-md p-1 opacity-0 transition-opacity hover:bg-[var(--color-surface-raised)] group-hover:opacity-100">
-                          <MoreHorizontal
-                            className="h-4 w-4 text-[var(--color-text-secondary)]"
-                            strokeWidth={1.5}
-                          />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem
-                          className="text-[var(--color-danger)]"
-                          onClick={() => handleDelete(d.id)}
-                        >
-                          <Trash2 className="mr-2 h-4 w-4" strokeWidth={1.5} />
-                          Delete
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+            ) : filtered.length === 0 ? (
+              <div className="flex flex-1 items-center justify-center pt-20">
+                <div className="flex max-w-sm flex-col items-center text-center">
+                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--color-accent-subtle)]">
+                    <GitBranch className="h-8 w-8 text-[var(--color-accent-brand)]" strokeWidth={1.5} />
                   </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="flex flex-1 items-center justify-center">
-              <div className="flex max-w-sm flex-col items-center text-center">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-[var(--color-accent-subtle)]">
-                  <GitBranch
-                    className="h-8 w-8 text-[var(--color-accent-brand)]"
-                    strokeWidth={1.5}
-                  />
+                  <h1 className="mt-6 text-xl font-semibold text-[var(--color-text-primary)]">
+                    {folderForActive ? 'This folder is empty' : 'Create your first diagram'}
+                  </h1>
+                  <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-secondary)]">
+                    {folderForActive
+                      ? 'Move diagrams here using the ··· menu on any diagram card.'
+                      : `You have ${generationsRemaining} generations remaining. Describe any process and get a diagram in seconds.`
+                    }
+                  </p>
+                  {!folderForActive && (
+                    <Button className="mt-6 gap-2" size="default" onClick={() => setGenerateOpen(true)}>
+                      <Sparkles className="h-4 w-4" strokeWidth={1.5} />
+                      Generate a diagram
+                    </Button>
+                  )}
                 </div>
-                <h1 className="mt-6 text-xl font-semibold text-[var(--color-text-primary)]">
-                  Create your first diagram
-                </h1>
-                <p className="mt-2 text-sm leading-relaxed text-[var(--color-text-secondary)]">
-                  You have {generationsRemaining} free generations to try
-                  Flowmapr. Describe any process and get a clean BPMN or User
-                  Flow diagram in seconds.
-                </p>
-                <Button
-                  className="mt-6 gap-2"
-                  size="default"
-                  onClick={() => setGenerateOpen(true)}
-                >
-                  <Sparkles className="h-4 w-4" strokeWidth={1.5} />
-                  Generate a diagram
-                </Button>
               </div>
-            </div>
-          )}
+            ) : view === 'grid' ? (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {filtered.map(d => <DiagramCard key={d.id} d={d} />)}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {filtered.map(d => {
+                  const dotColor = TYPE_COLORS[d.diagram_type] ?? '#71717A'
+                  const badge = getTypeStyle(d.diagram_type)
+                  const folderName = d.folder_id ? folders.find(f => f.id === d.folder_id)?.name : null
+                  return (
+                    <div key={d.id} style={{
+                      display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px',
+                      borderRadius: 8, border: '1px solid rgba(255,255,255,0.06)',
+                      background: 'rgba(255,255,255,0.02)', transition: 'background 0.15s',
+                    }}
+                      onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)' }}
+                      onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.02)' }}
+                    >
+                      <Link href={diagramPath(d)} style={{ flex: 1, display: 'flex', alignItems: 'center', gap: 12, textDecoration: 'none' }}>
+                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: dotColor, flexShrink: 0 }} />
+                        <span style={{ fontSize: 13, fontFamily: 'Inter, sans-serif', color: 'var(--color-text-primary)', fontWeight: 500, flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {d.title}
+                        </span>
+                        <span style={{ padding: '2px 7px', borderRadius: 4, fontSize: 10, fontWeight: 600, background: badge.bg, color: badge.color, flexShrink: 0 }}>
+                          {badge.label}
+                        </span>
+                        {folderName && (
+                          <span style={{ fontSize: 11, color: '#52525B', flexShrink: 0 }}>📁 {folderName}</span>
+                        )}
+                        <span style={{ fontSize: 11, color: 'var(--color-text-tertiary)', flexShrink: 0 }}>{formatDate(d.updated_at)}</span>
+                      </Link>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-secondary)', padding: 4, borderRadius: 4 }}>
+                            <MoreHorizontal size={14} strokeWidth={1.5} />
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuSub>
+                            <DropdownMenuSubTrigger>
+                              <FolderInput className="mr-2 h-4 w-4" strokeWidth={1.5} />Move to folder
+                            </DropdownMenuSubTrigger>
+                            <DropdownMenuSubContent>
+                              <DropdownMenuItem onClick={() => handleMove(d.id, null)}>— No folder</DropdownMenuItem>
+                              {folders.map(f => (
+                                <DropdownMenuItem key={f.id} onClick={() => handleMove(d.id, f.id)}>
+                                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: f.color, display: 'inline-block', marginRight: 8 }} />
+                                  {f.name}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuSubContent>
+                          </DropdownMenuSub>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-[var(--color-danger)]" onClick={() => handleDelete(d.id)}>
+                            <Trash2 className="mr-2 h-4 w-4" strokeWidth={1.5} />Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         </main>
       </div>
 

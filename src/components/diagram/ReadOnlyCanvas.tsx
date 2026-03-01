@@ -106,7 +106,7 @@ export function ReadOnlyCanvas({ title, nodes, edges }: ReadOnlyCanvasProps) {
           proOptions={{ hideAttribution: true }}
         >
           <Background color="var(--color-diagram-grid)" gap={20} size={1} />
-          <Controls showInteractiveButton={false} />
+          <Controls showInteractive={false} />
           <MiniMap
             nodeColor={minimapNodeColor}
             maskColor="rgba(250,250,250,0.8)"
