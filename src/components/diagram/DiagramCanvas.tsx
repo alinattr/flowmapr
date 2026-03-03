@@ -58,6 +58,11 @@ import { generateBpmnXml } from '@/lib/diagram/bpmn/generateBpmnXml'
 import { parseBpmnXml } from '@/lib/diagram/bpmn/parseBpmnXml'
 import { Eye, Columns, Code2, Copy, Check, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { saveVersion } from '@/lib/diagram/versions'
+import { HistoryPanel } from '@/components/diagram/HistoryPanel'
+import { ExplainPanel } from '@/components/diagram/ExplainPanel'
+import { FeedbackBar } from '@/components/diagram/FeedbackBar'
+import { useTheme } from '@/lib/theme/ThemeProvider'
 
 const nodeTypes = {
   bpmnTask: BpmnTaskNode,
@@ -108,6 +113,8 @@ interface DiagramCanvasProps {
   fullName: string | null
   isPublic: boolean
   publicSlug: string | null
+  userPlan?: string
+  userId?: string
 }
 
 function DiagramCanvasInner({
@@ -122,8 +129,12 @@ function DiagramCanvasInner({
   fullName,
   isPublic,
   publicSlug,
+  userPlan,
+  userId = '',
 }: DiagramCanvasProps) {
   const router = useRouter()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   const reactFlowInstance = useReactFlow()
   const [nodes, setNodes, onNodesChange] = useNodesState(
     diagramType === 'bpmn' ? fixBpmnLayout(initialNodes as Parameters<typeof fixBpmnLayout>[0]) as typeof initialNodes : initialNodes
@@ -134,6 +145,8 @@ function DiagramCanvasInner({
     'saved'
   )
   const [regenerating, setRegenerating] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [explainOpen, setExplainOpen] = useState(false)
   const [viewMode, setViewMode] = useState<'visual' | 'split' | 'code'>('visual')
   const [codeText, setCodeText] = useState('')
   const [codeError, setCodeError] = useState<string | null>(null)
@@ -262,6 +275,9 @@ function DiagramCanvasInner({
   }
 
   async function handleRegenerate(newPrompt: string, newDiagramType: string) {
+    // Save current state as a version before leaving
+    await saveVersion(diagramId, { nodes, edges, diagramType, title })
+
     setRegenerating(true)
     try {
       const res = await fetch('/api/generate', {
@@ -297,6 +313,24 @@ function DiagramCanvasInner({
     }
   }
 
+  async function handleRestoreVersion(snapshot: Record<string, unknown>) {
+    // Save current state before overwriting
+    await saveVersion(diagramId, { nodes, edges, diagramType, title }, 'Before restore')
+
+    const restoredNodes = Array.isArray(snapshot.nodes) ? snapshot.nodes as typeof nodes : nodes
+    const restoredEdges = Array.isArray(snapshot.edges) ? snapshot.edges as typeof edges : edges
+    setNodes(restoredNodes)
+    setEdges(restoredEdges)
+
+    const supabase = createClient()
+    await supabase
+      .from('diagrams')
+      .update({ flow_data: { nodes: restoredNodes, edges: restoredEdges } })
+      .eq('id', diagramId)
+
+    toast.success('Version restored')
+  }
+
   if (regenerating) {
     return <GenerationLoader />
   }
@@ -325,6 +359,23 @@ function DiagramCanvasInner({
         isPublic={isPublic}
         publicSlug={publicSlug}
         diagramType={diagramType}
+        nodes={nodes}
+        edges={edges}
+        userPlan={userPlan}
+        onHistoryOpen={() => setHistoryOpen(true)}
+        onExplainOpen={() => setExplainOpen(true)}
+      />
+      <HistoryPanel
+        diagramId={diagramId}
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        onRestore={handleRestoreVersion}
+      />
+      <ExplainPanel
+        open={explainOpen}
+        onClose={() => setExplainOpen(false)}
+        diagramType={diagramType ?? ''}
+        diagramTitle={title}
         nodes={nodes}
         edges={edges}
       />
@@ -394,7 +445,7 @@ function DiagramCanvasInner({
               <Controls />
               <MiniMap
                 nodeColor={minimapNodeColor}
-                maskColor="rgba(250,250,250,0.8)"
+                maskColor={isDark ? 'rgba(9,9,11,0.75)' : 'rgba(240,240,248,0.75)'}
               />
             </ReactFlow>
 
@@ -492,6 +543,24 @@ function DiagramCanvasInner({
           </div>
         )}
       </div>
+
+      {/* Feedback bar — low visual weight, bottom-left */}
+      {userId && (
+        <div style={{
+          height: 36, display: 'flex', alignItems: 'center',
+          padding: '0 16px',
+          borderTop: '1px solid var(--color-border, rgba(255,255,255,0.04))',
+          background: 'var(--color-surface, #111)',
+          flexShrink: 0,
+        }}>
+          <FeedbackBar
+            key={diagramId}
+            diagramId={diagramId}
+            diagramType={diagramType}
+            userId={userId}
+          />
+        </div>
+      )}
     </div>
   )
 }

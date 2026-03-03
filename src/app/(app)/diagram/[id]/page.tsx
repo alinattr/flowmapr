@@ -38,13 +38,14 @@ export default async function DiagramPage({ params }: PageProps) {
 
   const { data: sub } = await supabase
     .from('subscriptions')
-    .select('generations_used, monthly_limit')
+    .select('generations_used, monthly_limit, plan')
     .eq('user_id', user.id)
     .single()
 
   const generationsRemaining = sub
     ? sub.monthly_limit - sub.generations_used
     : 0
+  const userPlan = sub?.plan ?? 'free_trial'
 
   const rawFlow = diagram.flow_data as { nodes?: unknown[]; edges?: unknown[] }
   const { nodes, edges } = parseFlowData(rawFlow as Parameters<typeof parseFlowData>[0])
@@ -64,6 +65,8 @@ export default async function DiagramPage({ params }: PageProps) {
       fullName={fullName}
       isPublic={diagram.is_public ?? false}
       publicSlug={diagram.public_slug ?? null}
+      userPlan={userPlan}
+      userId={user.id}
     />
   )
 }

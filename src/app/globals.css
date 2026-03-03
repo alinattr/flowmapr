@@ -14,6 +14,31 @@
   from { opacity: 0; transform: scale(0.8) translateY(4px); }
   to   { opacity: 1; transform: scale(1)   translateY(0); }
 }
+
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+@keyframes fadeInScale {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
@@ -290,6 +315,11 @@
   color: #E4E4E7 !important;
 }
 
+[data-theme="light"] .sidebar-nav-link:hover {
+  background: rgba(0,0,0,0.04) !important;
+  color: #111827 !important;
+}
+
 /* ── SIDEBAR FOLDER MENU BUTTON HOVER ── */
 .app-sidebar div:hover > .folder-menu-btn {
   opacity: 1 !important;
@@ -321,10 +351,62 @@
   color: #C4B5FD !important;
 }
 
-/* ── SVG PREVIEW FILL FIX ── */
-.diagram-card svg {
-  width: 100% !important;
-  height: 100% !important;
+/* ── REACT FLOW NODE WRAPPER FIX ──
+   React Flow applies background-color: #fff to every .react-flow__node wrapper.
+   Our custom node components use semi-transparent dark backgrounds that blend with
+   this white, making nodes appear washed-out/white in dark theme.
+   Setting transparent here lets each node component fully control its own background.
+*/
+.react-flow__node {
+  background-color: transparent !important;
+  border: none !important;
+}
+
+/* ── EDGE LABEL THEME ── */
+.react-flow__edge-textbg {
+  fill: #F9FAFB;
+}
+.react-flow__edge-text {
+  fill: #374151;
+}
+[data-theme="dark"] .react-flow__edge-textbg {
+  fill: #1E1E2E;
+}
+[data-theme="dark"] .react-flow__edge-text {
+  fill: #94A3B8;
+}
+
+/* ── SVG PREVIEW THUMBNAIL ── */
+.diagram-card .preview-svg-wrap svg {
+  max-width: 100%;
+  max-height: 136px;
+  width: auto;
+  height: auto;
+}
+.diagram-card .thumbnail-overlay {
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s ease;
+  pointer-events: none;
+  border-radius: 8px 8px 0 0;
+}
+.diagram-card:hover .thumbnail-overlay {
+  background: rgba(0, 0, 0, 0.38);
+}
+.diagram-card .thumbnail-overlay-label {
+  opacity: 0;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  transition: opacity 0.2s ease;
+}
+.diagram-card:hover .thumbnail-overlay-label {
+  opacity: 1;
 }
 
 /* ── API LENS STYLES ── */

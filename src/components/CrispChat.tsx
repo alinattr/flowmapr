@@ -10,6 +10,9 @@ declare global {
 
 export function CrispChat() {
   useEffect(() => {
+    const consent = localStorage.getItem('cookie_consent')
+    if (consent !== 'accepted') return
+
     window.$crisp = []
     window.CRISP_WEBSITE_ID = 'e164a0a7-7d70-4c79-9219-f2571ef93f7b'
     window.$crisp.push(['config', 'color:theme', 'purple'])

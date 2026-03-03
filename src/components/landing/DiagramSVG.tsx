@@ -12,10 +12,10 @@ export function DiagramSVG({ type }: { type: DiagramType }) {
 }
 
 function BpmnSVG() {
-  // Pool: x=20,y=30,w=660,h=240. Label bar 30px wide. Content from x=60.
-  // Lane 1 Customer:       y=30..110 center=70
+  // Pool: x=20,y=30,w=660,h=240. Label bar x=20..50 (30px). Divider at x=50. Content from x=80+.
+  // Lane 1 Customer:        y=30..110  center=70
   // Lane 2 Payment Service: y=110..190 center=150
-  // Lane 3 Bank:           y=190..270 center=230
+  // Lane 3 Bank:            y=190..270 center=230
   return (
     <svg width="100%" height="100%" viewBox="0 0 700 290" preserveAspectRatio="xMidYMid meet"
       style={{ fontFamily: 'Inter,sans-serif', overflow: 'visible' }}>
@@ -33,50 +33,54 @@ function BpmnSVG() {
 
       {/* Lane 1 — Customer */}
       <rect x="50" y="30" width="630" height="80" fill="transparent" stroke="rgba(99,102,241,0.15)" strokeWidth="1"/>
-      <text x="64" y="55" fill="#6366F1" fontSize="9">Customer</text>
+      {/* Lane label rotated, centered in lane */}
+      <text x="35" y="75" fill="#6366F1" fontSize="9" textAnchor="middle" transform="rotate(-90,35,75)">Customer</text>
 
       {/* Lane 2 — Payment Service */}
       <rect x="50" y="110" width="630" height="80" fill="rgba(99,102,241,0.02)" stroke="rgba(99,102,241,0.15)" strokeWidth="1"/>
-      <text x="64" y="135" fill="#6366F1" fontSize="9">Payment Service</text>
+      <text x="35" y="155" fill="#6366F1" fontSize="9" textAnchor="middle" transform="rotate(-90,35,155)">Payment Svc</text>
 
       {/* Lane 3 — Bank */}
       <rect x="50" y="190" width="630" height="80" fill="transparent" stroke="rgba(99,102,241,0.15)" strokeWidth="1"/>
-      <text x="64" y="215" fill="#6366F1" fontSize="9">Bank</text>
+      <text x="35" y="235" fill="#6366F1" fontSize="9" textAnchor="middle" transform="rotate(-90,35,235)">Bank</text>
 
-      {/* Start event — Customer lane */}
+      {/* Vertical divider — label column / content */}
+      <line x1="50" y1="30" x2="50" y2="270" stroke="rgba(99,102,241,0.2)" strokeWidth="1"/>
+
+      {/* Start event — Customer lane, cx=90 clear of label column */}
       <circle cx="90" cy="70" r="14" fill="rgba(34,197,94,0.12)" stroke="#22C55E" strokeWidth="2"/>
 
-      {/* Submit Order — Customer lane (x=130,y=45,w=110,h=50) */}
-      <rect x="130" y="45" width="110" height="50" rx="6" fill="rgba(99,102,241,0.12)" stroke="rgba(99,102,241,0.4)" strokeWidth="1.5"/>
-      <text x="185" y="75" fill="#C4B5FD" fontSize="10" fontWeight="500" textAnchor="middle">Submit Order</text>
+      {/* Submit Order — Customer lane */}
+      <rect x="140" y="45" width="110" height="50" rx="6" fill="rgba(99,102,241,0.12)" stroke="rgba(99,102,241,0.4)" strokeWidth="1.5"/>
+      <text x="195" y="75" fill="#C4B5FD" fontSize="10" fontWeight="500" textAnchor="middle">Submit Order</text>
 
       {/* Validate Payment gateway — Payment lane */}
-      <polygon points="290,130 318,150 290,170 262,150" fill="rgba(234,179,8,0.12)" stroke="#EAB308" strokeWidth="1.5"/>
-      <text x="290" y="154" fill="#FCD34D" fontSize="9" textAnchor="middle">?</text>
+      <polygon points="300,130 328,150 300,170 272,150" fill="rgba(234,179,8,0.12)" stroke="#EAB308" strokeWidth="1.5"/>
+      <text x="300" y="154" fill="#FCD34D" fontSize="9" textAnchor="middle">?</text>
 
-      {/* Process Payment — Payment lane (x=340,y=125,w=120,h=50) */}
-      <rect x="340" y="125" width="120" height="50" rx="6" fill="rgba(99,102,241,0.12)" stroke="rgba(99,102,241,0.4)" strokeWidth="1.5"/>
-      <text x="400" y="155" fill="#C4B5FD" fontSize="10" fontWeight="500" textAnchor="middle">Process Payment</text>
+      {/* Process Payment — Payment lane */}
+      <rect x="360" y="125" width="120" height="50" rx="6" fill="rgba(99,102,241,0.12)" stroke="rgba(99,102,241,0.4)" strokeWidth="1.5"/>
+      <text x="420" y="155" fill="#C4B5FD" fontSize="10" fontWeight="500" textAnchor="middle">Process Payment</text>
 
-      {/* Confirm Order — Customer lane (x=510,y=45,w=120,h=50) */}
-      <rect x="510" y="45" width="120" height="50" rx="6" fill="rgba(99,102,241,0.12)" stroke="rgba(99,102,241,0.4)" strokeWidth="1.5"/>
-      <text x="570" y="75" fill="#C4B5FD" fontSize="10" fontWeight="500" textAnchor="middle">Confirm Order</text>
+      {/* Confirm Order — Customer lane */}
+      <rect x="520" y="45" width="120" height="50" rx="6" fill="rgba(99,102,241,0.12)" stroke="rgba(99,102,241,0.4)" strokeWidth="1.5"/>
+      <text x="580" y="75" fill="#C4B5FD" fontSize="10" fontWeight="500" textAnchor="middle">Confirm Order</text>
 
       {/* End event — Customer lane */}
-      <circle cx="658" cy="70" r="14" fill="rgba(239,68,68,0.12)" stroke="#EF4444" strokeWidth="2.5"/>
-      <circle cx="658" cy="70" r="10" fill="rgba(239,68,68,0.3)"/>
+      <circle cx="660" cy="70" r="14" fill="rgba(239,68,68,0.12)" stroke="#EF4444" strokeWidth="2.5"/>
+      <circle cx="660" cy="70" r="10" fill="rgba(239,68,68,0.3)"/>
 
       {/* Sequence flows */}
       {/* Start → Submit Order */}
-      <line x1="104" y1="70" x2="130" y2="70" stroke="rgba(99,102,241,0.5)" strokeWidth="1.5" markerEnd="url(#arrow-b)"/>
-      {/* Submit Order → Gateway (down-diagonal to Payment lane) */}
-      <line x1="240" y1="70" x2="262" y2="150" stroke="rgba(99,102,241,0.5)" strokeWidth="1.5" markerEnd="url(#arrow-b)"/>
+      <line x1="104" y1="70" x2="140" y2="70" stroke="rgba(99,102,241,0.5)" strokeWidth="1.5" markerEnd="url(#arrow-b)"/>
+      {/* Submit Order → Gateway */}
+      <line x1="250" y1="70" x2="272" y2="150" stroke="rgba(99,102,241,0.5)" strokeWidth="1.5" markerEnd="url(#arrow-b)"/>
       {/* Gateway → Process Payment */}
-      <line x1="318" y1="150" x2="340" y2="150" stroke="rgba(99,102,241,0.5)" strokeWidth="1.5" markerEnd="url(#arrow-b)"/>
-      {/* Process Payment → Confirm Order (up-diagonal to Customer lane) */}
-      <line x1="460" y1="150" x2="510" y2="70" stroke="rgba(99,102,241,0.5)" strokeWidth="1.5" markerEnd="url(#arrow-b)"/>
+      <line x1="328" y1="150" x2="360" y2="150" stroke="rgba(99,102,241,0.5)" strokeWidth="1.5" markerEnd="url(#arrow-b)"/>
+      {/* Process Payment → Confirm Order */}
+      <line x1="480" y1="150" x2="520" y2="70" stroke="rgba(99,102,241,0.5)" strokeWidth="1.5" markerEnd="url(#arrow-b)"/>
       {/* Confirm Order → End */}
-      <line x1="630" y1="70" x2="644" y2="70" stroke="rgba(99,102,241,0.5)" strokeWidth="1.5" markerEnd="url(#arrow-b)"/>
+      <line x1="640" y1="70" x2="646" y2="70" stroke="rgba(99,102,241,0.5)" strokeWidth="1.5" markerEnd="url(#arrow-b)"/>
     </svg>
   )
 }

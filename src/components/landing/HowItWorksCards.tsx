@@ -75,66 +75,113 @@ function TypewriterPrompt() {
   )
 }
 
-// ─── Card 02: Node-appear animation ──────────────────────────────────────────
+// ─── Card 02: AI generating animation ────────────────────────────────────────
 
-// Nodes re-centered for a 200×50 viewBox
-const DIAGRAM_NODES = [
-  { label: 'Start',    cx: 16,  cy: 25, color: '#22C55E', shape: 'circle',  delay: 0   },
-  { label: 'Process',  x:  36,  y: 13,  color: '#6366F1', shape: 'rect',    delay: 0.4 },
-  { label: 'Decision', cx: 120, cy: 25, color: '#F59E0B', shape: 'diamond', delay: 0.8 },
-  { label: 'End',      cx: 172, cy: 25, color: '#EF4444', shape: 'circle',  delay: 1.2 },
-]
-
-function NodeAnimation() {
-  const [key, setKey] = useState(0)
+function GeneratingAnimation() {
+  const [phase, setPhase] = useState<'idle' | 'loading' | 'done'>('idle')
 
   useEffect(() => {
-    const id = setInterval(() => setKey(k => k + 1), 4000)
-    return () => clearInterval(id)
+    let cancelled = false
+    const timers: ReturnType<typeof setTimeout>[] = []
+
+    const run = () => {
+      if (cancelled) return
+      setPhase('idle')
+      timers.push(setTimeout(() => { if (!cancelled) setPhase('loading') }, 100))
+      timers.push(setTimeout(() => { if (!cancelled) setPhase('done') }, 1200))
+      timers.push(setTimeout(() => { if (!cancelled) run() }, 3500))
+    }
+
+    run()
+    return () => {
+      cancelled = true
+      timers.forEach(clearTimeout)
+    }
   }, [])
 
+  const badges = [
+    { label: 'BPMN',    color: '#6366F1' },
+    { label: 'UML Seq', color: '#22C55E' },
+    { label: 'C4',      color: '#A78BFA' },
+    { label: 'ERD',     color: '#3B82F6' },
+  ]
+
   return (
-    <div style={{ marginTop: 8 }}>
-      <svg key={key} width="200" height="50" viewBox="0 0 200 50"
-        style={{ overflow: 'visible' }}>
-        {/* Connecting lines */}
-        <line x1="25" y1="25" x2="36" y2="25"
-          stroke="rgba(99,102,241,0.3)" strokeWidth="1"
-          style={{ animation: 'nodeAppear 0.4s 1.6s ease both', opacity: 0 }}/>
-        <line x1="78" y1="25" x2="108" y2="25"
-          stroke="rgba(99,102,241,0.3)" strokeWidth="1"
-          style={{ animation: 'nodeAppear 0.4s 1.7s ease both', opacity: 0 }}/>
-        <line x1="132" y1="25" x2="163" y2="25"
-          stroke="rgba(99,102,241,0.3)" strokeWidth="1"
-          style={{ animation: 'nodeAppear 0.4s 1.8s ease both', opacity: 0 }}/>
+    <div style={{
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: 10,
+      width: '100%',
+      padding: '0 16px',
+    }}>
+      {/* Status label */}
+      <div style={{
+        fontSize: 10,
+        fontFamily: 'Inter, sans-serif',
+        color: phase === 'done' ? '#4ADE80' : 'rgba(99,102,241,0.6)',
+        fontWeight: 600,
+        letterSpacing: '0.06em',
+        textTransform: 'uppercase',
+        transition: 'color 0.3s ease',
+      }}>
+        {phase === 'done' ? '✓ Generated' : phase === 'loading' ? 'Generating...' : '·'}
+      </div>
 
-        {/* Start circle */}
-        <g style={{ animation: `nodeAppear 0.5s 0s ease both`, opacity: 0 }}>
-          <circle cx="16" cy="25" r="10" fill="#22C55E22" stroke="#22C55E" strokeWidth="1.5"/>
-          <text x="16" y="29" textAnchor="middle" fontSize="7" fill="rgba(255,255,255,0.5)" fontFamily="Inter,sans-serif">Start</text>
-        </g>
+      {/* Progress bar */}
+      <div style={{
+        width: '100%',
+        height: 3,
+        background: 'rgba(99,102,241,0.1)',
+        borderRadius: 99,
+        overflow: 'hidden',
+      }}>
+        <div style={{
+          height: '100%',
+          borderRadius: 99,
+          background: phase === 'done'
+            ? 'linear-gradient(90deg, #22C55E, #4ADE80)'
+            : 'linear-gradient(90deg, #6366F1, #8B5CF6)',
+          width: phase === 'idle' ? '0%' : '100%',
+          transition: phase === 'loading'
+            ? 'width 1.0s ease'
+            : phase === 'done'
+            ? 'background 0.3s ease'
+            : 'none',
+          boxShadow: phase === 'done'
+            ? '0 0 8px rgba(34,197,94,0.5)'
+            : '0 0 8px rgba(99,102,241,0.5)',
+        }}/>
+      </div>
 
-        {/* Process rect */}
-        <g style={{ animation: `nodeAppear 0.5s 0.4s ease both`, opacity: 0 }}>
-          <rect x="36" y="13" width="42" height="24" rx="4"
-            fill="rgba(99,102,241,0.1)" stroke="rgba(99,102,241,0.5)" strokeWidth="1.5"/>
-          <text x="57" y="29" textAnchor="middle" fontSize="7" fill="rgba(255,255,255,0.5)" fontFamily="Inter,sans-serif">Process</text>
-        </g>
-
-        {/* Decision diamond */}
-        <g style={{ animation: `nodeAppear 0.5s 0.8s ease both`, opacity: 0 }}>
-          <polygon points="120,12 132,25 120,38 108,25"
-            fill="rgba(245,158,11,0.1)" stroke="#F59E0B" strokeWidth="1.5"/>
-          <text x="120" y="29" textAnchor="middle" fontSize="6" fill="rgba(255,255,255,0.5)" fontFamily="Inter,sans-serif">Gate</text>
-        </g>
-
-        {/* End circle */}
-        <g style={{ animation: `nodeAppear 0.5s 1.2s ease both`, opacity: 0 }}>
-          <circle cx="172" cy="25" r="10" fill="#EF444422" stroke="#EF4444" strokeWidth="1.5"/>
-          <circle cx="172" cy="25" r="6" fill="rgba(239,68,68,0.3)"/>
-          <text x="172" y="29" textAnchor="middle" fontSize="7" fill="rgba(255,255,255,0.5)" fontFamily="Inter,sans-serif">End</text>
-        </g>
-      </svg>
+      {/* Result type badges */}
+      <div style={{
+        display: 'flex',
+        gap: 5,
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+        opacity: phase === 'done' ? 1 : 0,
+        transform: phase === 'done' ? 'translateY(0)' : 'translateY(6px)',
+        transition: 'all 0.4s ease',
+      }}>
+        {badges.map((b, i) => (
+          <div key={b.label} style={{
+            padding: '3px 7px',
+            borderRadius: 4,
+            background: `${b.color}18`,
+            border: `1px solid ${b.color}35`,
+            fontSize: 9,
+            fontWeight: 600,
+            fontFamily: 'Inter, sans-serif',
+            color: b.color,
+            opacity: phase === 'done' ? 1 : 0,
+            transform: phase === 'done' ? 'scale(1)' : 'scale(0.85)',
+            transition: `all 0.2s ease ${i * 0.08}s`,
+          }}>
+            {b.label}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
@@ -257,9 +304,9 @@ export function HowItWorksCards() {
             padding: '12px 16px',
           }}>
             <StepBadge num={step.num} />
-            {i === 0 && <TypewriterPrompt />}
-            {i === 1 && <NodeAnimation />}
-            {i === 2 && <ExportAnimation />}
+          {i === 0 && <TypewriterPrompt />}
+          {i === 1 && <GeneratingAnimation />}
+          {i === 2 && <ExportAnimation />}
           </div>
 
           {/* Text area — always below illustration */}

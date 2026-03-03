@@ -10,6 +10,7 @@ import { SocialLinks } from '@/components/landing/SocialLinks'
 import { AuroraBackground } from '@/components/landing/AuroraBackground'
 import { CodeRain } from '@/components/landing/CodeRain'
 import { BackToTop } from '@/components/landing/BackToTop'
+import { CookieBanner } from '@/components/landing/CookieBanner'
 
 const plans = [
   {
@@ -19,11 +20,11 @@ const plans = [
     desc: 'Try Flowmapr with no commitment',
     highlight: false,
     features: [
-      '5 AI generations (lifetime)',
-      'Up to 5 diagrams',
-      'All diagram types',
+      'Generate up to 5 diagrams',
+      'All 6 diagram types',
       'Export PNG / PDF',
-      'Public sharing',
+      'Explain Diagram (AI description)',
+      'Guided onboarding',
     ],
     cta: 'Get started free',
     href: '/signup',
@@ -36,12 +37,13 @@ const plans = [
     highlight: true,
     badge: 'Most popular',
     features: [
-      '100 AI generations / month',
-      'Up to 50 diagrams',
+      'Generate up to 100 diagrams',
       'API Lens',
       'Export PNG / PDF',
+      'Explain Diagram (AI description)',
+      'Update Diagram with AI',
+      'Version History (last 20)',
       'Public sharing',
-      'Upload doc as context',
     ],
     cta: 'Get started',
     href: '/signup',
@@ -53,12 +55,15 @@ const plans = [
     desc: 'For power users with full access',
     highlight: false,
     features: [
-      '500 AI generations / month',
-      'Unlimited diagrams',
+      'Generate up to 500 diagrams',
       'API Lens',
-      'Export all formats',
+      'Export PNG / PDF',
+      'Explain Diagram (AI description)',
+      'Update Diagram with AI',
+      'Version History (last 20)',
+      'Export to GitHub / Notion / Confluence',
+      'Public sharing',
       'Share & embed',
-      'Upload doc as context',
     ],
     cta: 'Get started',
     href: '/signup',
@@ -151,6 +156,20 @@ export default function LandingPage() {
               See how it works
             </a>
           </div>
+          {/* Trust strip */}
+          <div style={{
+            marginTop: 20,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            gap: 6, flexWrap: 'wrap',
+            fontSize: 12, color: '#52525B', fontFamily: 'Inter, sans-serif',
+          }}>
+            {['✦ No setup', 'Guided first diagram', 'All 6 diagram types', 'Explain & Update with AI'].map((item, i, arr) => (
+              <span key={item} style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <span style={{ color: '#71717A' }}>{item}</span>
+                {i < arr.length - 1 && <span style={{ color: '#27272A' }}>·</span>}
+              </span>
+            ))}
+          </div>
         </div>
 
         {/* Hero diagram */}
@@ -160,7 +179,7 @@ export default function LandingPage() {
       </section>
 
       {/* Diagram types */}
-      <section style={{ padding: '80px 0', position: 'relative', zIndex: 1 }}>
+      <section id="features" style={{ padding: '80px 0', position: 'relative', zIndex: 1 }}>
         <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 24px' }}>
           <div style={{ textAlign: 'center', marginBottom: 48 }}>
             {sectionTitle('Every diagram type you need')}
@@ -179,6 +198,143 @@ export default function LandingPage() {
             {sectionTitle('How it works')}
           </div>
           <HowItWorksCards />
+        </div>
+      </section>
+
+      {/* New features highlight */}
+      <section style={{ padding: '80px 0', position: 'relative', zIndex: 1 }}>
+        <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 24px' }}>
+          <div style={{ textAlign: 'center', marginBottom: 48 }}>
+            {sectionTitle('Everything you need to diagram faster')}
+            <p style={{ marginTop: 12, color: '#71717A', fontFamily: 'Inter, sans-serif', fontSize: 15 }}>
+              Beyond generation — Flowmapr helps you understand, update, and share your diagrams.
+            </p>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16 }}>
+            {[
+              {
+                color: '#6366F1',
+                bg: 'rgba(99,102,241,0.08)',
+                border: 'rgba(99,102,241,0.2)',
+                badge: 'All plans · Free',
+                badgeColor: '#818CF8',
+                icon: (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>
+                  </svg>
+                ),
+                title: 'Explain any diagram',
+                desc: 'Click Explain on any diagram — AI writes a plain-English description covering components, flow, and purpose. Perfect for onboarding new teammates.',
+              },
+              {
+                color: '#22C55E',
+                bg: 'rgba(34,197,94,0.07)',
+                border: 'rgba(34,197,94,0.2)',
+                badge: 'Basic + Pro',
+                badgeColor: '#4ADE80',
+                icon: (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                  </svg>
+                ),
+                title: 'Update with AI',
+                desc: "Tell the AI what to change — 'Add a fraud check step before payment' — and it updates the diagram without starting over.",
+              },
+              {
+                color: '#3B82F6',
+                bg: 'rgba(59,130,246,0.07)',
+                border: 'rgba(59,130,246,0.2)',
+                badge: 'Basic + Pro',
+                badgeColor: '#60A5FA',
+                icon: (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+                  </svg>
+                ),
+                title: 'Version History',
+                desc: 'Every generation is auto-saved. Click History to browse all previous versions and restore any of them with one click.',
+              },
+              {
+                color: '#F59E0B',
+                bg: 'rgba(245,158,11,0.07)',
+                border: 'rgba(245,158,11,0.2)',
+                badge: 'All plans · Free',
+                badgeColor: '#FCD34D',
+                icon: (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                  </svg>
+                ),
+                title: 'Guided onboarding',
+                desc: 'First-time setup walks you through your diagram type, example prompt, and generation — from zero to first diagram in under 60 seconds.',
+              },
+              {
+                color: '#EC4899',
+                bg: 'rgba(236,72,153,0.07)',
+                border: 'rgba(236,72,153,0.2)',
+                badge: 'Pro only',
+                badgeColor: '#F472B6',
+                icon: (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                  </svg>
+                ),
+                title: 'Export anywhere',
+                desc: 'Push diagrams directly to GitHub README, Confluence pages, or Notion docs — without re-uploading or screenshotting manually.',
+              },
+              {
+                color: '#A78BFA',
+                bg: 'rgba(167,139,250,0.07)',
+                border: 'rgba(167,139,250,0.2)',
+                badge: 'All plans · Free',
+                badgeColor: '#C4B5FD',
+                icon: (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+                  </svg>
+                ),
+                title: 'All 6 diagram types',
+                desc: 'BPMN, UML Sequence, ERD, Flowchart, C4 Architecture, and API Lens — every major format in one tool, no switching between apps.',
+              },
+            ].map(card => (
+              <div key={card.title} style={{
+                padding: '22px 22px 20px',
+                background: card.bg,
+                border: `1px solid ${card.border}`,
+                borderRadius: 14,
+                display: 'flex', flexDirection: 'column', gap: 10,
+              }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 }}>
+                  <div style={{
+                    width: 34, height: 34, borderRadius: 9,
+                    background: `${card.color}18`,
+                    border: `1px solid ${card.color}30`,
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: card.color, flexShrink: 0,
+                  }}>
+                    {card.icon}
+                  </div>
+                  <span style={{
+                    padding: '3px 8px', borderRadius: 20,
+                    background: `${card.color}14`,
+                    border: `1px solid ${card.color}28`,
+                    fontSize: 10, fontWeight: 600, color: card.badgeColor,
+                    fontFamily: 'Inter, sans-serif', whiteSpace: 'nowrap',
+                  }}>
+                    {card.badge}
+                  </span>
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: '#F1F5F9', fontFamily: 'Inter, sans-serif', marginBottom: 6 }}>
+                    {card.title}
+                  </div>
+                  <div style={{ fontSize: 12.5, color: '#71717A', fontFamily: 'Inter, sans-serif', lineHeight: 1.65 }}>
+                    {card.desc}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -292,6 +448,7 @@ export default function LandingPage() {
       </footer>
 
       <BackToTop />
+      <CookieBanner />
     </div>
   )
 }

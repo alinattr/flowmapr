@@ -4,14 +4,13 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import {
   MessageSquareText,
   ChevronDown,
   ChevronUp,
   Sparkles,
 } from 'lucide-react'
-import type { DiagramType } from '@/types/diagram'
+import { DIAGRAM_TYPES, normalizeType, type DiagramTypeValue } from '@/lib/diagram-types'
 
 interface PromptPanelProps {
   initialPrompt: string
@@ -26,9 +25,7 @@ export function PromptPanel({
 }: PromptPanelProps) {
   const [open, setOpen] = useState(false)
   const [prompt, setPrompt] = useState(initialPrompt)
-  const [type, setType] = useState<DiagramType>(
-    initialType as DiagramType
-  )
+  const [type, setType] = useState<DiagramTypeValue>(normalizeType(initialType))
 
   return (
     <div className="absolute bottom-4 left-4 z-10 w-80">
@@ -52,30 +49,36 @@ export function PromptPanel({
           <div className="space-y-4 border-t border-[var(--color-border)] p-4">
             <div className="space-y-2">
               <Label className="text-xs">Diagram type</Label>
-              <RadioGroup
-                value={type}
-                onValueChange={(v) => setType(v as DiagramType)}
-                className="flex gap-4"
-              >
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="bpmn" id="regen-bpmn" />
-                  <Label htmlFor="regen-bpmn" className="cursor-pointer text-xs font-normal">
-                    BPMN
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="user_flow" id="regen-uf" />
-                  <Label htmlFor="regen-uf" className="cursor-pointer text-xs font-normal">
-                    User Flow
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem value="uml_class" id="regen-uml" />
-                  <Label htmlFor="regen-uml" className="cursor-pointer text-xs font-normal">
-                    ERD
-                  </Label>
-                </div>
-              </RadioGroup>
+              <div className="grid grid-cols-2 gap-1.5">
+                {DIAGRAM_TYPES.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setType(value)}
+                    style={{
+                      padding: '6px 10px',
+                      borderRadius: 6,
+                      cursor: 'pointer',
+                      textAlign: 'left',
+                      fontSize: 11,
+                      fontWeight: type === value ? 600 : 400,
+                      fontFamily: 'Inter, sans-serif',
+                      background: type === value
+                        ? 'var(--color-accent-subtle)'
+                        : 'transparent',
+                      border: `1px solid ${type === value
+                        ? 'var(--color-accent-brand)'
+                        : 'var(--color-border)'}`,
+                      color: type === value
+                        ? 'var(--color-accent-brand)'
+                        : 'var(--color-text-secondary)',
+                      transition: 'all 0.12s ease',
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <Textarea

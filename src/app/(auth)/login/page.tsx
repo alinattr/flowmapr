@@ -1,5 +1,6 @@
 import { LoginForm } from '@/components/auth/LoginForm'
 import { CodeRain } from '@/components/landing/CodeRain'
+import { Logo } from '@/components/shared/LogoIcon'
 
 export const metadata = {
   title: 'Log in — Flowmapr',
@@ -36,20 +37,8 @@ export default function LoginPage() {
         }}>
           {/* Header */}
           <div style={{ textAlign: 'center', marginBottom: 28 }}>
-            <div style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 8,
-              marginBottom: 20,
-            }}>
-              {/* Logo mark */}
-              <div style={{
-                width: 32, height: 32, borderRadius: 8,
-                background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                fontSize: 16, fontWeight: 700, color: '#fff',
-              }}>F</div>
-              <span style={{ fontSize: 16, fontWeight: 700, color: '#F1F5F9' }}>Flowmapr</span>
+            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 20 }}>
+              <Logo size={32} />
             </div>
             <h1 style={{
               fontSize: 24, fontWeight: 700,

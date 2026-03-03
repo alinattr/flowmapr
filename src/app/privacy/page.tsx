@@ -1,4 +1,5 @@
 import { LandingNav } from '@/components/landing/LandingNav'
+import { CookiePreferences } from '@/components/landing/CookiePreferences'
 
 export const metadata = {
   title: 'Privacy Policy — Flowmapr',
@@ -79,6 +80,8 @@ export default function PrivacyPage() {
             </p>
           </div>
         ))}
+
+        <CookiePreferences />
       </div>
     </div>
   )

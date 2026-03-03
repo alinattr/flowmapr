@@ -22,6 +22,7 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import type { DiagramSummary, Folder } from '@/types/diagram'
 import { moveDiagramToFolder, createFolder, getFolders, deleteFolder, renameFolder, updateFolderColor } from '@/lib/folders/folderService'
+import { OnboardingModal } from '@/components/onboarding/OnboardingModal'
 
 function diagramPath(d: { id: string; diagram_type: string }) {
   if (d.diagram_type === 'api_lens') return `/api-lens/${d.id}`
@@ -60,6 +61,7 @@ interface WorkspaceShellProps {
   plan: string
   diagrams: DiagramSummary[]
   folders: Folder[]
+  needsOnboarding?: boolean
 }
 
 export function WorkspaceShell({
@@ -69,10 +71,18 @@ export function WorkspaceShell({
   plan,
   diagrams: initialDiagrams,
   folders: initialFolders,
+  needsOnboarding = false,
 }: WorkspaceShellProps) {
   const [generateOpen, setGenerateOpen] = useState(false)
   const [diagrams, setDiagrams] = useState(initialDiagrams)
   const [folders, setFolders] = useState(initialFolders)
+  const [showOnboarding, setShowOnboarding] = useState(false)
+
+  useEffect(() => {
+    if (!needsOnboarding) return
+    const t = setTimeout(() => setShowOnboarding(true), 600)
+    return () => clearTimeout(t)
+  }, [needsOnboarding])
   const [activeFolder, setActiveFolder] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [sort, setSort] = useState<SortOption>('updated_desc')
@@ -154,27 +164,36 @@ export function WorkspaceShell({
   const folderForActive = activeFolder ? folders.find(f => f.id === activeFolder) : null
 
   function DiagramCard({ d }: { d: DiagramSummary }) {
-    const color = TYPE_COLORS[d.diagram_type] ?? '#6366F1'
     return (
       <div className="diagram-card group relative rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] transition-shadow hover:shadow-md"
         style={{ overflow: 'hidden' }}>
         <Link href={diagramPath(d)} className="block">
           {/* Preview */}
           <div style={{
-            height: 112, background: 'var(--color-surface-raised)',
+            height: 160,
+            background: 'var(--color-surface-raised)',
+            position: 'relative',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             overflow: 'hidden', borderBottom: '1px solid var(--color-border)',
+            borderRadius: '8px 8px 0 0',
+            padding: 12,
           }}>
             {d.preview_svg ? (
-              <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              <div
+                className="preview-svg-wrap"
+                style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 dangerouslySetInnerHTML={{ __html: d.preview_svg }}
               />
             ) : (
               <FileText className="h-8 w-8 text-[var(--color-text-tertiary)]" strokeWidth={1} />
             )}
+            {/* Hover overlay */}
+            <div className="thumbnail-overlay">
+              <span className="thumbnail-overlay-label">Open →</span>
+            </div>
           </div>
           <div style={{ padding: '12px 14px' }}>
-            <p className="truncate text-sm font-medium text-[var(--color-text-primary)]">{d.title}</p>
+            <p className="truncate text-[var(--color-text-primary)]" style={{ fontSize: 14, fontWeight: 600 }}>{d.title}</p>
             <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
               {(() => { const s = getTypeStyle(d.diagram_type); return (
                 <span style={{
@@ -184,7 +203,7 @@ export function WorkspaceShell({
                   {s.label}
                 </span>
               ) })()}
-              <span className="text-xs text-[var(--color-text-tertiary)]">{formatDate(d.updated_at)}</span>
+              <span style={{ fontSize: 12, color: '#6B7280' }}>{formatDate(d.updated_at)}</span>
             </div>
           </div>
         </Link>
@@ -369,6 +388,13 @@ export function WorkspaceShell({
       </div>
 
       <GenerateDialog open={generateOpen} onOpenChange={setGenerateOpen} />
+
+      {showOnboarding && (
+        <OnboardingModal
+          onComplete={() => setShowOnboarding(false)}
+          userName={fullName ?? email}
+        />
+      )}
     </div>
   )
 }

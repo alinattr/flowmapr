@@ -15,21 +15,14 @@ import {
 import { Loader2, Sparkles } from 'lucide-react'
 import { GenerationLoader } from '@/components/shared/GenerationLoader'
 import type { DiagramType } from '@/types/diagram'
+import { DIAGRAM_TYPES as CANONICAL_TYPES } from '@/lib/diagram-types'
 
 interface GenerateDialogProps {
   open: boolean
   onOpenChange: (open: boolean) => void
 }
 
-const DIAGRAM_TYPES = [
-  { value: 'bpmn',         label: 'BPMN 2.0',      color: '#6366F1', desc: 'Business process flows' },
-  { value: 'uml_sequence', label: 'UML Sequence',   color: '#22C55E', desc: 'System interactions' },
-  { value: 'erd',          label: 'ERD',            color: '#3B82F6', desc: 'Database schema' },
-  { value: 'flowchart',    label: 'Flowchart',      color: '#F59E0B', desc: 'Decision flows' },
-  { value: 'c4_l1',        label: 'C4 Model (L1)',  color: '#A78BFA', desc: 'System context' },
-  { value: 'c4_l2',        label: 'C4 Model (L2)',  color: '#8B5CF6', desc: 'Container diagram' },
-  { value: 'api_lens',     label: 'API Lens',       color: '#06B6D4', desc: 'From OpenAPI spec' },
-] as const
+const DIAGRAM_TYPES = CANONICAL_TYPES.map(t => ({ ...t, desc: t.description }))
 
 const PLACEHOLDERS: Record<string, string> = {
   bpmn: 'e.g. Online order process: Customer places order, Payment Service validates card, Warehouse picks items, Delivery assigns courier, Customer receives package.',
@@ -38,7 +31,6 @@ const PLACEHOLDERS: Record<string, string> = {
   flowchart: 'e.g. Password reset flow: User enters email. Check if email exists — if not, show error. Send reset link. User clicks link. Check if link expired — if yes, request new link. User enters new password. Save password. End.',
   c4_l1: 'e.g. Fintech wallet system (Tambadana): Client uses Mobile App to top up wallet via FPX banking, pay QR merchants, transfer funds from credit line, and view transaction history. Mobile App connects to Backend Service which integrates with Fasspay API Wallet and stores data in PostgreSQL.',
   c4_l2: 'e.g. Tambadana wallet containers: Mobile App (React Native) → API Gateway → Auth Service, Wallet Service, Payment Service, Transaction Service. Wallet Service → PostgreSQL. Payment Service → Fasspay API (external). All services → Redis cache.',
-  api_lens: 'Paste your OpenAPI/Swagger spec here, or describe your API endpoints:\n\ne.g. POST /auth/login — authenticate user\nGET /users/me — get current user profile\nPOST /payment/init — initialize payment with amount and currency\nGET /wallet/balance — get wallet balance\nDELETE /users/{id} — delete user account',
 }
 
 export function GenerateDialog({ open, onOpenChange }: GenerateDialogProps) {
@@ -83,8 +75,7 @@ export function GenerateDialog({ open, onOpenChange }: GenerateDialogProps) {
 
       const data = await res.json()
       let destination = `/diagram/${data.diagramId}`
-      if (diagramType === 'api_lens') destination = `/api-lens/${data.diagramId}`
-      else if (diagramType === 'uml_sequence') destination = `/sequence/${data.diagramId}`
+      if (diagramType === 'uml_sequence') destination = `/sequence/${data.diagramId}`
       router.push(destination)
     } catch {
       setLoading(false)
@@ -135,7 +126,7 @@ export function GenerateDialog({ open, onOpenChange }: GenerateDialogProps) {
 
           <div className="space-y-2">
             <Label htmlFor="prompt">
-              {diagramType === 'api_lens' ? 'Paste your OpenAPI spec or describe your API' : 'Describe your process'}
+              Describe your process
             </Label>
             <Textarea
               id="prompt"

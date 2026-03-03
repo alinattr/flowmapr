@@ -37,11 +37,12 @@ export default async function ApiLensPage({ params }: PageProps) {
 
   const { data: sub } = await supabase
     .from('subscriptions')
-    .select('generations_used, monthly_limit')
+    .select('generations_used, monthly_limit, plan')
     .eq('user_id', user.id)
     .single()
 
   const generationsRemaining = sub ? sub.monthly_limit - sub.generations_used : 0
+  const userPlan = sub?.plan ?? 'free_trial'
 
   const flowData = (diagram.flow_data ?? {}) as Record<string, unknown>
   const services = Array.isArray(flowData.services) ? flowData.services : []
@@ -65,6 +66,7 @@ export default async function ApiLensPage({ params }: PageProps) {
       isPublic={diagram.is_public ?? false}
       publicSlug={diagram.public_slug ?? null}
       linkedC4={linkedC4}
+      userPlan={userPlan}
     />
   )
 }

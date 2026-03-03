@@ -38,11 +38,12 @@ export default async function SequencePage({ params }: PageProps) {
 
   const { data: sub } = await supabase
     .from('subscriptions')
-    .select('generations_used, monthly_limit')
+    .select('generations_used, monthly_limit, plan')
     .eq('user_id', user.id)
     .single()
 
   const generationsRemaining = sub ? sub.monthly_limit - sub.generations_used : 0
+  const userPlan = sub?.plan ?? 'free_trial'
 
   const flowData = (diagram.flow_data ?? {}) as Record<string, unknown>
 
@@ -64,6 +65,8 @@ export default async function SequencePage({ params }: PageProps) {
       fullName={(user.user_metadata?.full_name as string) ?? null}
       isPublic={diagram.is_public ?? false}
       publicSlug={diagram.public_slug ?? null}
+      userPlan={userPlan}
+      userId={user.id}
     />
   )
 }

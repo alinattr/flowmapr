@@ -15,6 +15,8 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Settings, LogOut, CreditCard, Sparkles } from 'lucide-react'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { LogoMark } from '@/components/shared/LogoIcon'
+import { useTheme } from '@/lib/theme/ThemeProvider'
 
 interface AppNavbarProps {
   email: string
@@ -28,6 +30,8 @@ export function AppNavbar({
   generationsRemaining,
 }: AppNavbarProps) {
   const router = useRouter()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
 
   const initials = fullName
     ? fullName
@@ -47,10 +51,19 @@ export function AppNavbar({
   return (
     <header className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4">
       <Link
-        href="/workspace"
-        className="text-base font-semibold text-[var(--color-accent-brand)]"
+        href="/"
+        style={{ textDecoration: 'none', display: 'flex', alignItems: 'center', gap: 8 }}
       >
-        flowmapr
+        <LogoMark size={26} />
+        <span style={{
+          fontSize: 15,
+          fontWeight: 700,
+          color: isDark ? '#F8FAFC' : '#111827',
+          fontFamily: 'Inter, sans-serif',
+          letterSpacing: '-0.02em',
+        }}>
+          flowmapr
+        </span>
       </Link>
 
       <div className="flex items-center gap-3">

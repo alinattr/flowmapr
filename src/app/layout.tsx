@@ -17,10 +17,14 @@ const jetbrainsMono = JetBrains_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Flowmapr — Turn requirements into diagrams',
+  title: 'Flowmapr — Turn requirements into diagrams instantly',
   description:
     'Generate professional BPMN, UML Sequence, ERD, Flowchart, C4 and API docs from plain text. No code. No Visio.',
-  icons: { icon: '/favicon.svg' },
+  icons: {
+    icon: [
+      { url: '/favicon.svg', type: 'image/svg+xml' },
+    ],
+  },
 }
 
 export default function RootLayout({

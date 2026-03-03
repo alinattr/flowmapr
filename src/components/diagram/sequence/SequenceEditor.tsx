@@ -4,8 +4,12 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { DiagramTopBar } from '../DiagramTopBar'
 import { SequenceRenderer, type SequenceData, type SeqParticipant, type SeqMessage } from './SequenceRenderer'
+import { HistoryPanel } from '@/components/diagram/HistoryPanel'
+import { ExplainPanel } from '@/components/diagram/ExplainPanel'
+import { FeedbackBar } from '@/components/diagram/FeedbackBar'
 import { GenerationLoader } from '@/components/shared/GenerationLoader'
 import { createClient } from '@/lib/supabase/client'
+import { saveVersion } from '@/lib/diagram/versions'
 import { generateSequencePreview } from '@/lib/diagram/generatePreviewSvg'
 import { toast } from 'sonner'
 import { Copy, Check, AlertCircle, Eye, Columns, Code2, MessageSquareText, ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
@@ -190,6 +194,8 @@ interface SequenceEditorProps {
   fullName: string | null
   isPublic: boolean
   publicSlug: string | null
+  userPlan?: string
+  userId?: string
 }
 
 type ViewMode = 'visual' | 'split' | 'code'
@@ -204,6 +210,8 @@ export function SequenceEditor({
   fullName,
   isPublic,
   publicSlug,
+  userPlan,
+  userId = '',
 }: SequenceEditorProps) {
   const router = useRouter()
   const [title, setTitle] = useState(initialTitle)
@@ -214,6 +222,8 @@ export function SequenceEditor({
   const [viewMode, setViewMode] = useState<ViewMode>('visual')
   const [copied, setCopied] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [explainOpen, setExplainOpen] = useState(false)
   const [promptOpen, setPromptOpen] = useState(false)
   const [promptText, setPromptText] = useState(initialPrompt)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -278,6 +288,8 @@ export function SequenceEditor({
 
   async function handleRegenerate() {
     if (!promptText.trim()) return
+    // Save current state as a version before regenerating
+    await saveVersion(diagramId, { ...data, title } as Record<string, unknown>)
     setRegenerating(true)
     try {
       const res = await fetch('/api/generate', {
@@ -302,6 +314,34 @@ export function SequenceEditor({
       toast.error('Something went wrong. Please try again.')
       setRegenerating(false)
     }
+  }
+
+  async function handleRestoreVersion(snapshot: Record<string, unknown>) {
+    // Save current state before overwriting
+    await saveVersion(diagramId, { ...data, title } as Record<string, unknown>, 'Before restore')
+
+    const restored: SequenceData = {
+      title: (snapshot.title as string) ?? title,
+      participants: Array.isArray(snapshot.participants)
+        ? (snapshot.participants as SequenceData['participants'])
+        : data.participants,
+      messages: Array.isArray(snapshot.messages)
+        ? (snapshot.messages as SequenceData['messages'])
+        : data.messages,
+      fragments: Array.isArray(snapshot.fragments)
+        ? (snapshot.fragments as SequenceData['fragments'])
+        : data.fragments,
+    }
+
+    setData(restored)
+    setCodeText(toPlantUML(restored))
+
+    await supabase
+      .from('diagrams')
+      .update({ flow_data: restored })
+      .eq('id', diagramId)
+
+    toast.success('Version restored')
   }
 
   if (regenerating) return <GenerationLoader />
@@ -329,6 +369,23 @@ export function SequenceEditor({
         diagramType="uml_sequence"
         nodes={[]}
         edges={[]}
+        userPlan={userPlan}
+        onHistoryOpen={() => setHistoryOpen(true)}
+        onExplainOpen={() => setExplainOpen(true)}
+      />
+      <HistoryPanel
+        diagramId={diagramId}
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        onRestore={handleRestoreVersion}
+      />
+      <ExplainPanel
+        open={explainOpen}
+        onClose={() => setExplainOpen(false)}
+        diagramType="UML Sequence"
+        diagramTitle={title}
+        nodes={data.participants.map(p => ({ id: p.id, data: { label: p.label }, position: { x: p.x, y: 0 }, type: 'default' }))}
+        edges={data.messages.map(m => ({ id: m.id, source: m.from, target: m.to, label: m.label }))}
       />
 
       {/* Tabs */}
@@ -513,6 +570,24 @@ export function SequenceEditor({
           </div>
         )}
       </div>
+
+      {/* Feedback bar — low visual weight, bottom-left */}
+      {userId && (
+        <div style={{
+          height: 36, display: 'flex', alignItems: 'center',
+          padding: '0 16px',
+          borderTop: '1px solid var(--color-border, rgba(255,255,255,0.04))',
+          background: 'var(--color-surface, #111)',
+          flexShrink: 0,
+        }}>
+          <FeedbackBar
+            key={diagramId}
+            diagramId={diagramId}
+            diagramType="uml_sequence"
+            userId={userId}
+          />
+        </div>
+      )}
     </div>
   )
 }

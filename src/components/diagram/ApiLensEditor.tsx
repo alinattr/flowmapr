@@ -41,6 +41,7 @@ interface ApiLensEditorProps {
   isPublic: boolean
   publicSlug: string | null
   linkedC4?: { l1Id: string | null; l2Id: string | null }
+  userPlan?: string
 }
 
 export function ApiLensEditor({
@@ -54,6 +55,7 @@ export function ApiLensEditor({
   isPublic,
   publicSlug,
   linkedC4,
+  userPlan,
 }: ApiLensEditorProps) {
   const [title, setTitle] = useState(initialTitle)
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | null>(null)
@@ -134,6 +136,7 @@ export function ApiLensEditor({
         diagramType="api_lens"
         nodes={[]}
         edges={[]}
+        userPlan={userPlan}
       />
       <div style={{ flex: 1, overflow: 'hidden' }}>
         <ApiLensShell

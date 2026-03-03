@@ -5,8 +5,13 @@ const PUBLIC_ROUTES = [
   '/',
   '/login',
   '/signup',
+  '/forgot-password',
+  '/reset-password',
   '/auth/callback',
   '/share',
+  '/embed',
+  '/terms',
+  '/privacy',
 ]
 
 function isPublicRoute(pathname: string) {
@@ -17,6 +22,27 @@ function isPublicRoute(pathname: string) {
 }
 
 export async function updateSession(request: NextRequest) {
+  // ── CORS protection for API routes ────────────────────────────────────────
+  // Block cross-origin requests to /api/* from origins not in the allowlist.
+  // Same-origin requests (no Origin header) are always allowed.
+  if (request.nextUrl.pathname.startsWith('/api/')) {
+    const origin = request.headers.get('origin')
+    if (origin) {
+      const allowedOrigins = [
+        process.env.NEXT_PUBLIC_APP_URL,
+        'http://localhost:3000',
+        'http://localhost:3001',
+      ].filter(Boolean) as string[]
+
+      if (!allowedOrigins.includes(origin)) {
+        return new NextResponse(
+          JSON.stringify({ error: 'Forbidden' }),
+          { status: 403, headers: { 'Content-Type': 'application/json' } }
+        )
+      }
+    }
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
@@ -51,6 +77,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // Redirect logged-in users away from login/signup — but NOT from '/'
   if (user && (pathname === '/login' || pathname === '/signup')) {
     const url = request.nextUrl.clone()
     url.pathname = '/workspace'

@@ -23,3 +23,51 @@ export function LogoIcon({ size = 28, className }: { size?: number; className?: 
     </svg>
   )
 }
+
+export function LogoMark({ size = 32 }: { size?: number }) {
+  return (
+    <div
+      style={{
+        width: size,
+        height: size,
+        background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+        borderRadius: Math.round(size * 0.28),
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        flexShrink: 0,
+      }}
+    >
+      <span
+        style={{
+          color: '#fff',
+          fontSize: Math.round(size * 0.52),
+          fontWeight: 700,
+          fontFamily: 'Inter, sans-serif',
+          lineHeight: 1,
+        }}
+      >
+        F
+      </span>
+    </div>
+  )
+}
+
+export function Logo({ size = 32 }: { size?: number }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+      <LogoMark size={size} />
+      <span
+        style={{
+          fontSize: Math.round(size * 0.5),
+          fontWeight: 700,
+          color: '#F8FAFC',
+          fontFamily: 'Inter, sans-serif',
+          letterSpacing: '-0.02em',
+        }}
+      >
+        Flowmapr
+      </span>
+    </div>
+  )
+}

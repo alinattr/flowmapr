@@ -15,6 +15,7 @@ export default async function WorkspacePage() {
 
   const email = user.email ?? ''
   const fullName = (user.user_metadata?.full_name as string) ?? null
+  const onboardingCompleted = (user.user_metadata?.onboarding_completed as boolean | undefined) ?? true
 
   const { data: sub } = await supabase
     .from('subscriptions')
@@ -62,6 +63,10 @@ export default async function WorkspacePage() {
     } as DiagramSummary
   })
 
+  // Skip onboarding for users who already have diagrams (existing accounts)
+  const diagramCount = rawDiagrams?.length ?? 0
+  const needsOnboarding = !onboardingCompleted && diagramCount === 0
+
   return (
     <WorkspaceShell
       email={email}
@@ -70,6 +75,7 @@ export default async function WorkspacePage() {
       plan={plan}
       diagrams={diagrams}
       folders={(rawFolders ?? []) as Folder[]}
+      needsOnboarding={needsOnboarding}
     />
   )
 }
