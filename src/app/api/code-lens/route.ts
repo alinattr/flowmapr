@@ -30,56 +30,120 @@ Analyze the provided code and return a JSON object with exactly this structure:
 Rules:
 - Write all text fields for a business audience — no code syntax, no technical jargon
 - business_rules should capture the actual logic rules (if X then Y, limits, validations)
-- diagram_prompt should be detailed enough to generate a good flowchart diagram
-- diagram_type must always be "flowchart"
+- diagram_prompt should be detailed enough to generate a good diagram
+- diagram_type: use "uml_sequence" when the code primarily describes interactions between multiple services, APIs, or systems (e.g. API handlers, RPC clients, event handlers, middleware chains); use "flowchart" for single-function or algorithmic logic
+- diagram_prompt for uml_sequence: describe who talks to whom in plain English — name the actors and services, describe each request and response without any code syntax
 - Return ONLY valid JSON, no markdown, no explanation outside the JSON`
 
-// ─── Flowchart diagram prompt (mirrors generate/route.ts) ─────────────────────
-const FLOWCHART_DIAGRAM_PROMPT = `You are a flowchart diagram expert. Output ONLY valid JSON. No markdown, no explanation, no code blocks.
+// ─── UML Sequence diagram prompt for code-lens ────────────────────────────────
+// Same formatting rules as the generate route — no "sd" prefix, no ":" labels, no function syntax.
+const SEQUENCE_DIAGRAM_PROMPT = `You are a UML Sequence Diagram expert. Output ONLY valid JSON. No markdown, no explanation, no code blocks.
 
-NODE TYPES — use exactly these type strings:
-- "flowStart": oval start node. data: { label }
-- "flowEnd": oval end node. data: { label }
-- "flowProcess": rectangle process step. data: { label }
-- "flowDecision": diamond decision. data: { label } — label must be a yes/no question
-- "flowConnector": small circle used to merge branches back together. data: { label: "" }
+STRICT FORMATTING RULES — follow these exactly:
 
-LAYOUT RULES — strict grid system:
-- Main happy path goes TOP to BOTTOM (no left-to-right flow)
-- x=400 is the centerline for all main-path nodes
-- Start each node at y=80, increment y by 120 for each sequential step
-- Decision branches go LEFT (x=160) and RIGHT (x=640) at the same y as the decision
-- Branch nodes increment y by 120 from the branch point
-- Reconnect branches back to centerline using a flowConnector node
+1. TITLE: Plain descriptive title. NEVER prefix with "sd".
+   Correct: "title": "Payment Processing"
+   Wrong:   "title": "sd Payment Processing"
 
-NODE POSITIONS:
-- flowStart: x=400, y=80
-- First process: x=400, y=200
-- Decision: x=400, y=<current_y>
-- Left branch: x=160, y=<decision_y + 120>
-- Right branch: x=640, y=<decision_y + 120>
-- Connector (merge): x=400, y=<max_branch_y + 120>
-- flowEnd: x=400, y=<last_node_y + 120>
+2. PARTICIPANT LABELS: Clean display name. NO ":" prefix.
+   Correct: "label": "User"
+   Wrong:   "label": ":User"
 
-EDGES:
-- Use "smoothstep" type for all edges
-- Decision edges must have a label: "Yes" / "No"
-- Reconnecting edges from branches back to connector: no label
-- All edges need: id, source, target, type, label (empty string if no label)
+3. MESSAGE LABELS: Plain descriptive English. NO function call syntax. NO number prefixes.
+   Correct: "label": "Send payment request"
+   Wrong:   "label": "1: processPayment()"
 
 OUTPUT FORMAT:
 {
+  "title": "diagram name",
+  "participants": [
+    { "id": "p1", "label": "ActorName", "type": "actor", "x": 60 },
+    { "id": "p2", "label": "ServiceName", "type": "object", "x": 240 },
+    { "id": "p3", "label": "DatabaseName", "type": "database", "x": 420 }
+  ],
+  "messages": [
+    { "id": "m1", "from": "p1", "to": "p2", "label": "Initiate request", "type": "sync", "y": 160 },
+    { "id": "m2", "from": "p2", "to": "p3", "label": "Query records", "type": "sync", "y": 220 },
+    { "id": "m3", "from": "p3", "to": "p2", "label": "Return results", "type": "return", "y": 280 },
+    { "id": "m4", "from": "p2", "to": "p1", "label": "Return response", "type": "return", "y": 340 }
+  ],
+  "fragments": []
+}
+
+PARTICIPANT RULES:
+- x positions: start at 60, increment by 180 for each participant
+- "type": "actor" for users, "object" for services/APIs/systems, "database" for databases
+- Max 6 participants
+- Label: NO ":" prefix, NO underscores (use spaces: "Auth Service" not "Auth_Service")
+
+MESSAGE RULES:
+- y positions: start at 160, increment by 60 per message
+- "type": "sync" for requests (solid arrow), "return" for responses (dashed arrow)
+- Labels must be plain English — not code, not function names
+- Do NOT prefix labels with numbers
+
+FRAGMENT RULES:
+- Use "alt" fragments for success/error branches
+- Only include fragments when there are clear conditional paths
+
+Generate a UML sequence diagram for the following process.`
+
+// ─── Flowchart diagram prompt — uses canonical fcXxx node types ───────────────
+const FLOWCHART_DIAGRAM_PROMPT = `You are a flowchart diagram expert. Output ONLY valid JSON. No markdown, no explanation, no code blocks.
+
+NODE TYPES — use EXACTLY these type strings (they are case-sensitive):
+- "fcStart": oval start node. data: { label }
+- "fcEnd": oval end node. data: { label }
+- "fcProcess": rectangle process step. data: { label } — label = verb + noun
+- "fcDecision": diamond decision. data: { label } — label must be a yes/no question
+- "fcData": parallelogram data/IO node. data: { label }
+
+LAYOUT RULES — strict grid system:
+- Main happy path goes TOP to BOTTOM
+- x=300 is the centerline for all main-path nodes
+- Start each node at y=60, increment y by 120 for each sequential step
+- Decision branches go RIGHT (x=600) for "No" path
+- Branch nodes increment y by 120 from the branch point
+- All main-flow nodes at x=300; "No" branch nodes at x=600
+
+NODE POSITIONS:
+- fcStart: x=300, y=60
+- First process: x=300, y=180
+- Decision: x=300, y=<current_y>
+- "Yes" continues down: x=300, y=<decision_y + 120>
+- "No" branch: x=600, y=<decision_y + 120>
+- fcEnd: x=300, y=<last_node_y + 120>
+
+EDGE RULES:
+- Decision outgoing edges MUST have labels: "Yes" / "No"
+- Normal flow edges: no label needed
+- Use sourceHandle "bottom" for main flow, "right" for "No" branches
+
+OUTPUT FORMAT:
+{
+  "type": "flowchart",
   "nodes": [
-    { "id": "n1", "type": "flowStart", "position": { "x": 400, "y": 80 }, "data": { "label": "Start" } },
-    ...
+    { "id": "n1", "type": "fcStart", "position": { "x": 300, "y": 60 }, "data": { "label": "Start" } },
+    { "id": "n2", "type": "fcProcess", "position": { "x": 300, "y": 180 }, "data": { "label": "Do Something" } }
   ],
   "edges": [
-    { "id": "e1", "source": "n1", "target": "n2", "type": "smoothstep", "label": "" },
-    ...
+    { "id": "e1", "source": "n1", "target": "n2" },
+    { "id": "e2", "source": "n2", "target": "n3", "label": "Yes" }
   ]
 }
 
+QUALITY CHECKLIST:
+- Exactly one fcStart, at least one fcEnd
+- Every fcDecision has at least 2 outgoing labeled edges
+- No orphan nodes — every node is connected
+- Flow is logical and complete
+
 Generate a flowchart for the following process description.`
+
+// Strip PlantUML "sd " prefix that the model sometimes outputs even when instructed not to.
+function cleanSequenceTitle(title: string): string {
+  return title.replace(/^sd\s+/i, '').trim()
+}
 
 export async function POST(request: Request) {
   const supabase = await createClient()
@@ -161,14 +225,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ documentation: docData }, { status: 200 })
     }
 
-    // ── Step 2: Generate flowchart from diagram_prompt ────────────────────
+    // ── Step 2: Generate diagram from diagram_prompt ─────────────────────
+    const diagramType = docData.diagram_type === 'uml_sequence' ? 'uml_sequence' : 'flowchart'
+    const diagramSystemPrompt = diagramType === 'uml_sequence'
+      ? SEQUENCE_DIAGRAM_PROMPT
+      : FLOWCHART_DIAGRAM_PROMPT
+
     const diagramResponse = await openai.chat.completions.create({
       model: 'gpt-4o',
       max_tokens: 2000,
       temperature: 0.4,
       response_format: { type: 'json_object' },
       messages: [
-        { role: 'system', content: FLOWCHART_DIAGRAM_PROMPT },
+        { role: 'system', content: diagramSystemPrompt },
         { role: 'user', content: `Process description: ${docData.diagram_prompt}` },
       ],
     })
@@ -176,11 +245,16 @@ export async function POST(request: Request) {
     const rawDiagramText = diagramResponse.choices[0]?.message?.content ?? '{}'
     const parsedDiagram = JSON.parse(rawDiagramText)
 
-    // Fix BPMN-style layout issues if present
-    const diagramType = 'flowchart'
     let flowData: Record<string, unknown>
 
-    if (parsedDiagram.nodes && parsedDiagram.edges) {
+    if (diagramType === 'uml_sequence') {
+      flowData = {
+        title: cleanSequenceTitle(parsedDiagram.title ?? ''),
+        participants: parsedDiagram.participants ?? [],
+        messages: parsedDiagram.messages ?? [],
+        fragments: parsedDiagram.fragments ?? [],
+      }
+    } else if (parsedDiagram.nodes && parsedDiagram.edges) {
       // Ensure bpmn nodes aren't accidentally returned
       const nodes = (parsedDiagram.nodes as Array<{ type?: string }>).filter(
         n => !n.type?.startsWith('bpmn')
@@ -194,6 +268,8 @@ export async function POST(request: Request) {
     const preview_svg = generatePreviewFromFlowData(diagramType, flowData)
     const title = `Code Lens — ${docData.summary.slice(0, 50)}`
 
+    const diagramPrompt = docData.diagram_prompt || docData.summary || 'Code flow diagram'
+
     const { data: diagram, error: insertError } = await supabase
       .from('diagrams')
       .insert({
@@ -201,7 +277,7 @@ export async function POST(request: Request) {
         title,
         diagram_type: diagramType,
         flow_data: flowData,
-        prompt: `Code Lens analysis: ${docData.diagram_prompt}`,
+        prompt: diagramPrompt,
         preview_svg: preview_svg || null,
       })
       .select('id')
@@ -211,30 +287,34 @@ export async function POST(request: Request) {
       // Return without savedDiagramId — non-fatal
       return NextResponse.json({
         documentation: docData,
-        diagram: {
-          nodes: (flowData.nodes as Node[]) ?? [],
-          edges: (flowData.edges as Edge[]) ?? [],
-          diagramType,
-        },
+        diagram: diagramType === 'uml_sequence'
+          ? { title: flowData.title, participants: flowData.participants, messages: flowData.messages, fragments: flowData.fragments, diagramType }
+          : { nodes: (flowData.nodes as Node[]) ?? [], edges: (flowData.edges as Edge[]) ?? [], diagramType },
       }, { status: 200 })
     }
 
-    // Log generation
-    await supabase.from('generation_log').insert({
-      user_id: user.id,
-      diagram_id: diagram.id,
-      prompt: `Code Lens: ${language}`,
-      diagram_type: diagramType,
-      success: true,
-    }).then(() => {})
+    // Log generation + save initial version so History panel works in editor
+    await Promise.all([
+      supabase.from('generation_log').insert({
+        user_id: user.id,
+        diagram_id: diagram.id,
+        prompt: `Code Lens: ${language}`,
+        diagram_type: diagramType,
+        success: true,
+      }),
+      admin.from('diagram_versions').insert({
+        diagram_id: diagram.id,
+        user_id: user.id,
+        snapshot: { ...flowData, diagramType, title },
+        label: 'Code Lens — initial generation',
+      }),
+    ])
 
     return NextResponse.json({
       documentation: docData,
-      diagram: {
-        nodes: (flowData.nodes as Node[]) ?? [],
-        edges: (flowData.edges as Edge[]) ?? [],
-        diagramType,
-      },
+      diagram: diagramType === 'uml_sequence'
+        ? { title: flowData.title, participants: flowData.participants, messages: flowData.messages, fragments: flowData.fragments, diagramType }
+        : { nodes: (flowData.nodes as Node[]) ?? [], edges: (flowData.edges as Edge[]) ?? [], diagramType },
       savedDiagramId: diagram.id,
     }, { status: 200 })
 

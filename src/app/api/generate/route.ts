@@ -315,19 +315,42 @@ const SEQUENCE_PROMPT = `You are a UML Sequence Diagram expert. Output ONLY vali
 
 Generate a UML Sequence diagram as a flat JSON structure — NOT React Flow nodes/edges. The output is rendered by a custom SVG renderer.
 
+STRICT FORMATTING RULES — follow these exactly:
+
+1. TITLE: Write a plain descriptive title. NEVER prefix with "sd".
+   Correct: "title": "User Login"
+   Wrong:   "title": "sd User Login"
+
+2. PARTICIPANT LABELS: Use clean display names with NO ":" prefix.
+   Correct: "label": "Customer"
+   Wrong:   "label": ":Customer"
+   Correct: "label": "Mobile App"
+   Wrong:   "label": ":MobileApp"
+
+3. MESSAGE LABELS: Use plain descriptive language. NEVER use function call syntax. NEVER prefix with numbers.
+   Correct: "label": "Submit login form"
+   Wrong:   "label": "1: login(email, pwd)"
+   Correct: "label": "Return JWT token"
+   Wrong:   "label": "1.4: jwtToken()"
+   Correct: "label": "Send payment request"
+   Wrong:   "label": "2: processPayment()"
+
+4. Use "return" type for response messages (dashed arrow).
+5. Use "sync" type for request/action messages (solid arrow).
+
 OUTPUT FORMAT — strictly:
 {
   "title": "diagram name",
   "participants": [
-    { "id": "p1", "label": ":ActorName", "type": "actor", "x": 60 },
-    { "id": "p2", "label": ":ServiceName", "type": "object", "x": 240 },
-    { "id": "p3", "label": ":DatabaseName", "type": "database", "x": 420 }
+    { "id": "p1", "label": "ActorName", "type": "actor", "x": 60 },
+    { "id": "p2", "label": "ServiceName", "type": "object", "x": 240 },
+    { "id": "p3", "label": "DatabaseName", "type": "database", "x": 420 }
   ],
   "messages": [
-    { "id": "m1", "from": "p1", "to": "p2", "label": "1: methodCall()", "type": "sync", "y": 160 },
-    { "id": "m2", "from": "p2", "to": "p3", "label": "1.1: query()", "type": "sync", "y": 220 },
-    { "id": "m3", "from": "p3", "to": "p2", "label": "1.2: result", "type": "return", "y": 280 },
-    { "id": "m4", "from": "p2", "to": "p1", "label": "1.3: response", "type": "return", "y": 340 }
+    { "id": "m1", "from": "p1", "to": "p2", "label": "Initiate action", "type": "sync", "y": 160 },
+    { "id": "m2", "from": "p2", "to": "p3", "label": "Query database", "type": "sync", "y": 220 },
+    { "id": "m3", "from": "p3", "to": "p2", "label": "Return result", "type": "return", "y": 280 },
+    { "id": "m4", "from": "p2", "to": "p1", "label": "Return response", "type": "return", "y": 340 }
   ],
   "fragments": [
     {
@@ -343,13 +366,14 @@ PARTICIPANT RULES:
 - x positions: start at 60, increment by 180 for each participant
 - "type": "actor" for humans/users, "object" for services/systems/apps, "database" for databases
 - Max 6 participants for readability
-- label should start with ":" like ":Customer", ":OrderService"
+- "label" is the clean display name — NO ":" prefix, NO underscores (use spaces: "Mobile App" not "Mobile_App")
 
 MESSAGE RULES:
 - y positions: start at 160, increment by 60 for each message
-- "type": "sync" for method calls (solid arrow), "return" for responses (dashed arrow)
-- Number messages: 1, 1.1, 1.2, 2, 2.1, 3 etc.
+- "type": "sync" for requests/actions (solid arrow), "return" for responses (dashed arrow)
 - "from" and "to" are participant IDs
+- Labels must be plain English phrases describing what is sent — not code, not function names
+- Do NOT number messages (no "1:", "1.1:", "2:" etc.)
 
 FRAGMENT RULES:
 - Fragments wrap groups of messages to show conditional/loop logic
@@ -359,29 +383,31 @@ FRAGMENT RULES:
 - Only use fragments when the description implies conditional or repeated behavior
 
 QUALITY CHECKLIST:
+- Title has NO "sd" prefix
+- Every participant label has NO ":" prefix
+- No message label uses function call syntax like methodName() or methodName(arg)
+- No message label is prefixed with a number like "1:" or "1.1:"
 - Every participant has a unique id and incremental x position
 - Messages reference valid participant IDs
-- Messages are numbered sequentially
 - Return messages use type "return"
 - Fragment bounds contain their messages
-- Title is descriptive
 
 EXAMPLE for "User logs in via API":
 {
   "title": "User Login",
   "participants": [
-    { "id": "p1", "label": ":User", "type": "actor", "x": 60 },
-    { "id": "p2", "label": ":API", "type": "object", "x": 240 },
-    { "id": "p3", "label": ":AuthService", "type": "object", "x": 420 },
-    { "id": "p4", "label": ":Database", "type": "database", "x": 600 }
+    { "id": "p1", "label": "User", "type": "actor", "x": 60 },
+    { "id": "p2", "label": "API Gateway", "type": "object", "x": 240 },
+    { "id": "p3", "label": "Auth Service", "type": "object", "x": 420 },
+    { "id": "p4", "label": "Database", "type": "database", "x": 600 }
   ],
   "messages": [
-    { "id": "m1", "from": "p1", "to": "p2", "label": "1: login(email, pwd)", "type": "sync", "y": 160 },
-    { "id": "m2", "from": "p2", "to": "p3", "label": "1.1: authenticate()", "type": "sync", "y": 220 },
-    { "id": "m3", "from": "p3", "to": "p4", "label": "1.2: findUser(email)", "type": "sync", "y": 280 },
-    { "id": "m4", "from": "p4", "to": "p3", "label": "1.3: userRecord", "type": "return", "y": 340 },
-    { "id": "m5", "from": "p3", "to": "p2", "label": "1.4: JWT token", "type": "return", "y": 400 },
-    { "id": "m6", "from": "p2", "to": "p1", "label": "1.5: 200 OK + token", "type": "return", "y": 460 }
+    { "id": "m1", "from": "p1", "to": "p2", "label": "Submit login credentials", "type": "sync", "y": 160 },
+    { "id": "m2", "from": "p2", "to": "p3", "label": "Verify credentials", "type": "sync", "y": 220 },
+    { "id": "m3", "from": "p3", "to": "p4", "label": "Look up user record", "type": "sync", "y": 280 },
+    { "id": "m4", "from": "p4", "to": "p3", "label": "Return user record", "type": "return", "y": 340 },
+    { "id": "m5", "from": "p3", "to": "p2", "label": "Return JWT token", "type": "return", "y": 400 },
+    { "id": "m6", "from": "p2", "to": "p1", "label": "200 OK with token", "type": "return", "y": 460 }
   ],
   "fragments": [
     {
@@ -504,6 +530,12 @@ OUTPUT FORMAT:
 
 Now generate an ERD for the following database description.`
 
+// Strip PlantUML "sd " prefix that the model sometimes outputs even when instructed not to.
+// e.g. "sd Online Banking Payment" → "Online Banking Payment"
+function cleanSequenceTitle(title: string): string {
+  return title.replace(/^sd\s+/i, '').trim()
+}
+
 function getBasePrompt(type: string): string {
   if (type === 'bpmn') return BPMN_PROMPT
   if (type === 'uml_sequence') return SEQUENCE_PROMPT
@@ -547,6 +579,17 @@ export async function POST(request: Request) {
 
   const { diagramType } = body as { diagramType: string }
   const prompt = sanitizePrompt((body as { prompt: unknown }).prompt)
+  // Optional: when set, update this diagram in-place instead of creating a new one.
+  // Used by the editor's Regenerate button so version history stays on the same diagram.
+  const existingDiagramId =
+    typeof (body as Record<string, unknown>).existingDiagramId === 'string'
+      ? ((body as Record<string, unknown>).existingDiagramId as string)
+      : null
+  // Optional: project to assign the new diagram to. Falls back to user's default project.
+  const requestedProjectId =
+    typeof (body as Record<string, unknown>).projectId === 'string'
+      ? ((body as Record<string, unknown>).projectId as string)
+      : null
 
   // ── 2. Fast pre-check against subscriptions (existing mechanism) ─────────
   const { data: sub } = await supabase
@@ -611,7 +654,7 @@ export async function POST(request: Request) {
       flowData = { services: parsed.services ?? [], connections: parsed.connections ?? [] }
     } else if (diagramType === 'uml_sequence') {
       flowData = {
-        title: parsed.title ?? '',
+        title: cleanSequenceTitle(parsed.title ?? ''),
         participants: parsed.participants ?? [],
         messages: parsed.messages ?? [],
         fragments: parsed.fragments ?? [],
@@ -691,90 +734,141 @@ export async function POST(request: Request) {
 
   const preview_svg = generatePreviewFromFlowData(diagramType, flowData)
 
-  const { data: diagram, error: insertError } = await supabase
-    .from('diagrams')
-    .insert({
+  let savedDiagramId: string
+
+  if (existingDiagramId) {
+    // ── Regeneration: update the existing diagram in-place ──────────────────
+    // This keeps version history on the same diagram ID.
+    const { error: updateError } = await supabase
+      .from('diagrams')
+      .update({
+        diagram_type: diagramType,
+        flow_data: flowData,
+        prompt,
+        preview_svg: preview_svg || null,
+      })
+      .eq('id', existingDiagramId)
+
+    if (updateError) {
+      console.error('[generate] Failed to update diagram:', updateError)
+      return NextResponse.json({ error: 'Failed to update diagram' }, { status: 500 })
+    }
+
+    savedDiagramId = existingDiagramId
+
+    // Save a version for the newly-generated state
+    await supabase.from('diagram_versions').insert({
+      diagram_id: existingDiagramId,
       user_id: user.id,
-      title: 'Untitled diagram',
-      diagram_type: diagramType,
-      flow_data: flowData,
-      prompt,
-      preview_svg: preview_svg || null,
+      snapshot: { ...flowData, diagramType },
+      label: `Regenerated · ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
     })
-    .select('id')
-    .single()
 
-  if (insertError || !diagram) {
-    return NextResponse.json(
-      { error: 'Failed to save diagram' },
-      { status: 500 }
-    )
-  }
+    await supabase.from('generation_log').insert({
+      user_id: user.id,
+      diagram_id: existingDiagramId,
+      prompt,
+      diagram_type: diagramType,
+      success: true,
+    })
+  } else {
+    // ── New diagram: insert as before ────────────────────────────────────────
+    // Resolve project_id: use the one from the request, or fall back to user's default project.
+    let projectId: string | null = requestedProjectId
+    if (!projectId) {
+      const { data: defaultProject } = await supabase
+        .from('projects')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('is_default', true)
+        .single()
+      projectId = defaultProject?.id ?? null
+    }
 
-  await supabase.from('generation_log').insert({
-    user_id: user.id,
-    diagram_id: diagram.id,
-    prompt,
-    diagram_type: diagramType,
-    success: true,
-  })
+    const { data: diagram, error: insertError } = await supabase
+      .from('diagrams')
+      .insert({
+        user_id: user.id,
+        title: 'Untitled diagram',
+        diagram_type: diagramType,
+        flow_data: flowData,
+        prompt,
+        preview_svg: preview_svg || null,
+        project_id: projectId,
+      })
+      .select('id')
+      .single()
 
-  // Save initial version snapshot so History panel has an entry from the start
-  await supabase.from('diagram_versions').insert({
-    diagram_id: diagram.id,
-    user_id: user.id,
-    snapshot: { ...flowData, diagramType, title: 'Untitled diagram' },
-    label: 'Initial generation',
-  })
+    if (insertError || !diagram) {
+      return NextResponse.json({ error: 'Failed to save diagram' }, { status: 500 })
+    }
 
-  // After API Lens is saved, auto-generate linked C4 L1 + L2 diagrams
-  if (diagramType === 'api_lens') {
-    // Fire-and-forget: don't block the API Lens response
-    ;(async () => {
-      try {
-        const services = (flowData.services as Parameters<typeof generateC4L1FromServices>[0]) ?? []
-        const connections = (flowData.connections as Parameters<typeof generateC4L1FromServices>[1]) ?? []
-        const systemName = prompt.split('\n')[0].slice(0, 60) || 'System'
+    savedDiagramId = diagram.id
 
-        const c4l1Data = generateC4L1FromServices(services, connections, systemName)
-        const c4l2Data = generateC4L2FromServices(services, connections, systemName)
+    await supabase.from('generation_log').insert({
+      user_id: user.id,
+      diagram_id: diagram.id,
+      prompt,
+      diagram_type: diagramType,
+      success: true,
+    })
 
-        const previewL1 = generatePreviewFromFlowData('c4_l1', { nodes: c4l1Data.nodes, edges: c4l1Data.edges })
-        const previewL2 = generatePreviewFromFlowData('c4_l2', { nodes: c4l2Data.nodes, edges: c4l2Data.edges })
+    // Save initial version snapshot so History panel has an entry from the start
+    await supabase.from('diagram_versions').insert({
+      diagram_id: diagram.id,
+      user_id: user.id,
+      snapshot: { ...flowData, diagramType, title: 'Untitled diagram' },
+      label: 'Initial generation',
+    })
 
-        const adminClient = createAdminClient()
+    // After API Lens is saved, auto-generate linked C4 L1 + L2 diagrams
+    if (diagramType === 'api_lens') {
+      // Fire-and-forget: don't block the API Lens response
+      ;(async () => {
+        try {
+          const services = (flowData.services as Parameters<typeof generateC4L1FromServices>[0]) ?? []
+          const connections = (flowData.connections as Parameters<typeof generateC4L1FromServices>[1]) ?? []
+          const systemName = prompt.split('\n')[0].slice(0, 60) || 'System'
 
-        const [{ data: c4l1 }, { data: c4l2 }] = await Promise.all([
-          adminClient.from('diagrams').insert({
-            user_id: user.id,
-            title: c4l1Data.title,
-            diagram_type: 'c4_l1',
-            flow_data: { nodes: c4l1Data.nodes, edges: c4l1Data.edges },
-            prompt: `Auto-generated from API Lens: ${systemName}`,
-            preview_svg: previewL1 || null,
-          }).select('id').single(),
-          adminClient.from('diagrams').insert({
-            user_id: user.id,
-            title: c4l2Data.title,
-            diagram_type: 'c4_l2',
-            flow_data: { nodes: c4l2Data.nodes, edges: c4l2Data.edges },
-            prompt: `Auto-generated from API Lens: ${systemName}`,
-            preview_svg: previewL2 || null,
-          }).select('id').single(),
-        ])
+          const c4l1Data = generateC4L1FromServices(services, connections, systemName)
+          const c4l2Data = generateC4L2FromServices(services, connections, systemName)
 
-        if (c4l1?.id && c4l2?.id) {
-          await adminClient
-            .from('diagrams')
-            .update({ metadata: { linked_c4_l1: c4l1.id, linked_c4_l2: c4l2.id } })
-            .eq('id', diagram.id)
+          const previewL1 = generatePreviewFromFlowData('c4_l1', { nodes: c4l1Data.nodes, edges: c4l1Data.edges })
+          const previewL2 = generatePreviewFromFlowData('c4_l2', { nodes: c4l2Data.nodes, edges: c4l2Data.edges })
+
+          const adminClient = createAdminClient()
+
+          const [{ data: c4l1 }, { data: c4l2 }] = await Promise.all([
+            adminClient.from('diagrams').insert({
+              user_id: user.id,
+              title: c4l1Data.title,
+              diagram_type: 'c4_l1',
+              flow_data: { nodes: c4l1Data.nodes, edges: c4l1Data.edges },
+              prompt: `Auto-generated from API Lens: ${systemName}`,
+              preview_svg: previewL1 || null,
+            }).select('id').single(),
+            adminClient.from('diagrams').insert({
+              user_id: user.id,
+              title: c4l2Data.title,
+              diagram_type: 'c4_l2',
+              flow_data: { nodes: c4l2Data.nodes, edges: c4l2Data.edges },
+              prompt: `Auto-generated from API Lens: ${systemName}`,
+              preview_svg: previewL2 || null,
+            }).select('id').single(),
+          ])
+
+          if (c4l1?.id && c4l2?.id) {
+            await adminClient
+              .from('diagrams')
+              .update({ metadata: { linked_c4_l1: c4l1.id, linked_c4_l2: c4l2.id } })
+              .eq('id', diagram.id)
+          }
+        } catch (err) {
+          console.error('[API Lens] C4 auto-generation failed:', err)
         }
-      } catch (err) {
-        // Non-blocking — log but don't fail the API Lens response
-        console.error('[API Lens] C4 auto-generation failed:', err)
-      }
-    })()
+      })()
+    }
   }
 
-  return NextResponse.json({ diagramId: diagram.id, flowData })
+  return NextResponse.json({ diagramId: savedDiagramId, flowData })
 }

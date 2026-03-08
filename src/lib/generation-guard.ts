@@ -29,15 +29,20 @@ export async function checkAndDecrementGeneration(
     })
 
     if (error) {
-      // If the table doesn't exist yet (migration not applied), log and allow
-      // through so existing quota mechanism stays in control.
+      // Graceful passthrough when the counter infrastructure isn't deployed:
+      // - 42P01: generation_counters table doesn't exist
+      // - PGRST202: PostgREST can't find the function in its schema cache
+      //   (happens when generation_counters table / decrement fn are absent)
+      // In both cases fall back to the subscriptions-table quota check.
       if (
-        error.code === '42P01' || // undefined_table
-        error.message?.includes('does not exist')
+        error.code === '42P01' ||    // undefined_table
+        error.code === 'PGRST202' || // function not found in schema cache
+        error.message?.includes('does not exist') ||
+        error.message?.includes('Could not find the function')
       ) {
         console.warn(
-          '[generation-guard] generation_counters table not found — ' +
-            'apply supabase/migrations/20260303_generation_counters.sql'
+          '[generation-guard] decrement_generation_counter not available — ' +
+            'falling back to subscriptions quota check'
         )
         return { allowed: true, remaining: -1 }
       }

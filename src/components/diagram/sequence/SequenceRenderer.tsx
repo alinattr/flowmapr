@@ -75,10 +75,9 @@ interface SequenceRendererProps {
 }
 
 export function SequenceRenderer({ data, onEdit, readOnly = false }: SequenceRendererProps) {
-  const { participants, messages, fragments = [], title } = data
+  const { participants, messages, fragments = [] } = data
   const editable = !readOnly && !!onEdit
 
-  const [editingTitle, setEditingTitle] = useState(false)
   const [editingParticipant, setEditingParticipant] = useState<string | null>(null)
   const [editingMessage, setEditingMessage] = useState<string | null>(null)
   const [showHint, setShowHint] = useState(editable)
@@ -111,14 +110,6 @@ export function SequenceRenderer({ data, onEdit, readOnly = false }: SequenceRen
     }
     return result
   }, [participants, messages])
-
-  function commitTitle(value: string) {
-    setEditingTitle(false)
-    const trimmed = value.trim()
-    if (trimmed && trimmed !== title) {
-      onEdit?.({ ...data, title: trimmed })
-    }
-  }
 
   function commitParticipant(pid: string, value: string) {
     setEditingParticipant(null)
@@ -164,36 +155,6 @@ export function SequenceRenderer({ data, onEdit, readOnly = false }: SequenceRen
           <polyline points="0 0, 8 3, 0 6" fill="none" stroke={C.returnLine} strokeWidth="1" />
         </marker>
       </defs>
-
-      {/* Title */}
-      {(title || editingTitle) && (
-        <g>
-          {editingTitle ? (
-            <foreignObject x="10" y="4" width="300" height="28">
-              <input
-                autoFocus
-                defaultValue={title ?? ''}
-                style={INPUT_STYLE}
-                onBlur={e => commitTitle(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
-                  if (e.key === 'Escape') setEditingTitle(false)
-                }}
-              />
-            </foreignObject>
-          ) : (
-            <>
-              <rect x="10" y="8" width={(title?.length ?? 0) * 7 + 30} height="24" rx="2"
-                fill="none" stroke={C.primaryLight} strokeWidth="1" />
-              <text x="20" y="24" fontSize="11" fontWeight="500" fill={C.fragText}
-                style={{ cursor: editCursor }}
-                onDoubleClick={() => editable && setEditingTitle(true)}>
-                sd {title}
-              </text>
-            </>
-          )}
-        </g>
-      )}
 
       {/* Fragments */}
       {fragments.map(frag => (

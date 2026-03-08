@@ -1,12 +1,12 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
-import { CodeLensShell } from '@/components/workspace/CodeLensShell'
+import { ExplainDiagramShell } from '@/components/workspace/ExplainDiagramShell'
 
 export const metadata = {
-  title: 'Code Lens — Flowmapr',
+  title: 'Explain Diagram — Flowmapr',
 }
 
-export default async function WorkspaceCodeLensPage() {
+export default async function WorkspaceExplainDiagramPage() {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/login')
@@ -24,11 +24,11 @@ export default async function WorkspaceCodeLensPage() {
   const generationsRemaining = sub ? sub.monthly_limit - sub.generations_used : 2
 
   return (
-    <CodeLensShell
+    <ExplainDiagramShell
       email={email}
       fullName={fullName}
-      generationsRemaining={generationsRemaining}
       plan={plan}
+      generationsRemaining={generationsRemaining}
     />
   )
 }

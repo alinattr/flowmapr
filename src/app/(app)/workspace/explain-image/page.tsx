@@ -1,7 +1,6 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { ExplainImageShell } from '@/components/workspace/ExplainImageShell'
-import type { DiagramSummary, Folder } from '@/types/diagram'
 
 export const metadata = {
   title: 'Explain Image — Flowmapr',
@@ -24,30 +23,12 @@ export default async function WorkspaceExplainImagePage() {
   const plan = sub?.plan ?? 'free_trial'
   const generationsRemaining = sub ? sub.monthly_limit - sub.generations_used : 2
 
-  const { data: rawDiagrams } = await supabase
-    .from('diagrams')
-    .select('id, title, diagram_type, updated_at, created_at, preview_svg, folder_id, public_slug')
-    .eq('user_id', user.id)
-    .order('updated_at', { ascending: false })
-    .limit(50)
-
-  const { data: rawFolders } = await supabase
-    .from('folders')
-    .select('id, name, color, created_at')
-    .eq('user_id', user.id)
-    .order('created_at', { ascending: true })
-
-  const diagrams: DiagramSummary[] = (rawDiagrams ?? []) as DiagramSummary[]
-  const folders: Folder[] = (rawFolders ?? []) as Folder[]
-
   return (
     <ExplainImageShell
       email={email}
       fullName={fullName}
       plan={plan}
       generationsRemaining={generationsRemaining}
-      diagrams={diagrams}
-      folders={folders}
     />
   )
 }

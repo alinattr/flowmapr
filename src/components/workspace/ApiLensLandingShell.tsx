@@ -7,15 +7,12 @@ import { Loader2, Sparkles } from 'lucide-react'
 import { useTheme } from '@/lib/theme/ThemeProvider'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { AppSidebar } from '@/components/shared/AppSidebar'
-import type { DiagramSummary, Folder } from '@/types/diagram'
 
 interface ApiLensLandingShellProps {
   email: string
   fullName: string | null
   generationsRemaining: number
   plan: string
-  diagrams: DiagramSummary[]
-  folders: Folder[]
 }
 
 function useAlTokens(isDark: boolean) {
@@ -45,8 +42,6 @@ export function ApiLensLandingShell({
   fullName,
   generationsRemaining,
   plan,
-  diagrams,
-  folders,
 }: ApiLensLandingShellProps) {
   const router = useRouter()
   const { theme } = useTheme()
@@ -92,7 +87,7 @@ export function ApiLensLandingShell({
     <div style={{ display: 'flex', height: '100vh', flexDirection: 'column', background: 'var(--color-bg, #09090B)' }}>
       <AppNavbar email={email} fullName={fullName} generationsRemaining={generationsRemaining} />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <AppSidebar plan={plan} diagrams={diagrams} folders={folders} />
+        <AppSidebar plan={plan} />
 
         <main style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {/* Left panel — input */}

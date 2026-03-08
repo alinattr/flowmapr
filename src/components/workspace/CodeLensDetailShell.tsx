@@ -1,0 +1,341 @@
+'use client'
+
+import { useState } from 'react'
+import { AppNavbar } from '@/components/shared/AppNavbar'
+import { AppSidebar } from '@/components/shared/AppSidebar'
+import { Copy, Check, FileDown, ArrowLeft, ExternalLink } from 'lucide-react'
+import Link from 'next/link'
+import { useTheme } from '@/lib/theme/ThemeProvider'
+import type { Artifact } from '@/types/diagram'
+
+interface CodeLensDetailShellProps {
+  email: string
+  fullName: string | null
+  plan: string
+  generationsRemaining: number
+  artifact: Artifact
+}
+
+interface DocData {
+  summary: string
+  purpose: string
+  business_rules: string[]
+  inputs: string
+  outputs: string
+  edge_cases: string[]
+  dependencies: string[]
+}
+
+interface SavedContent {
+  documentation?: DocData
+  diagramType?: string | null
+  language?: string
+  outputMode?: string
+  savedDiagramId?: string | null
+  savedAt?: string
+}
+
+export function CodeLensDetailShell({ email, fullName, plan, generationsRemaining, artifact }: CodeLensDetailShellProps) {
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
+  const [copied, setCopied] = useState(false)
+  const [isExporting, setIsExporting] = useState(false)
+
+  const content = (artifact.content ?? {}) as SavedContent
+  const doc = content.documentation
+  const savedDiagramId = content.savedDiagramId ?? artifact.diagram_id ?? null
+
+  const T = {
+    cardBg:           isDark ? 'rgba(255,255,255,0.02)' : '#FFFFFF',
+    cardBorder:       isDark ? 'rgba(255,255,255,0.07)' : '#E5E7EB',
+    cardDivider:      isDark ? 'rgba(255,255,255,0.06)' : '#F3F4F6',
+    titleColor:       isDark ? '#F1F5F9'                : '#111827',
+    metaColor:        isDark ? '#52525B'                : '#9CA3AF',
+    docTextColor:     isDark ? '#CBD5E1'                : '#374151',
+    docLabelColor:    isDark ? '#71717A'                : '#9CA3AF',
+    docSectionTitle:  isDark ? '#6366F1'                : '#4F46E5',
+    actionBg:         isDark ? 'rgba(255,255,255,0.04)' : '#F9FAFB',
+    actionBorder:     isDark ? 'rgba(255,255,255,0.08)' : '#E5E7EB',
+    actionColor:      isDark ? '#94A3B8'                : '#374151',
+    actionHoverBg:    isDark ? 'rgba(255,255,255,0.08)' : '#F3F4F6',
+    actionHoverColor: isDark ? '#F1F5F9'                : '#111827',
+    pageBg:           isDark ? '#09090B'                : '#F5F5F7',
+  }
+
+  async function handleCopy() {
+    if (!doc) return
+    const text = [
+      `What this code does\n${doc.summary}`,
+      `\nWhy it exists\n${doc.purpose}`,
+      doc.business_rules?.length ? `\nKey business rules\n${doc.business_rules.map((r: string) => `• ${r}`).join('\n')}` : '',
+      `\nInputs & Outputs\nIn:  ${doc.inputs}\nOut: ${doc.outputs}`,
+      doc.edge_cases?.length ? `\nEdge cases\n${doc.edge_cases.map((e: string) => `• ${e}`).join('\n')}` : '',
+      doc.dependencies?.length ? `\nDependencies\n${doc.dependencies.join(', ')}` : '',
+    ].filter(Boolean).join('\n')
+    await navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  async function handleExportPDF() {
+    if (!doc || isExporting) return
+    setIsExporting(true)
+    try {
+      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
+        import('jspdf'),
+        import('html2canvas'),
+      ])
+      const esc = (s: string) =>
+        s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')
+
+      const sections = [
+        { title: 'WHAT THIS CODE DOES', content: doc.summary },
+        { title: 'WHY IT EXISTS',       content: doc.purpose },
+        { title: 'KEY BUSINESS RULES',  content: doc.business_rules?.join('\n') },
+        { title: 'INPUTS & OUTPUTS',    content: `In: ${doc.inputs}\n\nOut: ${doc.outputs}` },
+        { title: 'EDGE CASES & ERROR HANDLING', content: doc.edge_cases?.join('\n') },
+        { title: 'DEPENDENCIES',        content: doc.dependencies?.join(', ') },
+      ].filter(s => s.content)
+
+      const container = document.createElement('div')
+      container.style.cssText = [
+        'position:fixed', 'top:-9999px', 'left:-9999px',
+        'width:794px', 'background:#ffffff',
+        'font-family:Georgia,serif', 'color:#111827',
+        'padding:64px 56px', 'box-sizing:border-box',
+      ].join(';')
+
+      const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+      container.innerHTML = `
+        <div style="border-bottom:2px solid #6366F1;padding-bottom:20px;margin-bottom:36px;">
+          <div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6366F1;margin-bottom:10px;">Code Documentation</div>
+          <div style="font-size:22px;font-weight:700;color:#111827;margin-bottom:6px;">${esc(doc.summary?.slice(0, 80) ?? artifact.title)}</div>
+          <div style="font-size:12px;color:#6B7280;font-family:Inter,sans-serif;">Generated by Flowmapr · ${dateStr}</div>
+        </div>
+        ${sections.map(s => `
+          <div style="margin-bottom:32px;">
+            <div style="font-family:Inter,sans-serif;font-size:10px;font-weight:700;letter-spacing:0.12em;text-transform:uppercase;color:#6366F1;margin-bottom:12px;">${esc(s.title)}</div>
+            <div style="font-size:14px;line-height:1.8;color:#374151;white-space:pre-line;">${esc(s.content!)}</div>
+          </div>
+        `).join('')}
+        <div style="margin-top:56px;padding-top:16px;border-top:1px solid #E5E7EB;font-family:Inter,sans-serif;font-size:11px;color:#9CA3AF;text-align:center;">flowmapr.com</div>
+      `
+      document.body.appendChild(container)
+      const canvas = await html2canvas(container, {
+        scale: 2, useCORS: true, backgroundColor: '#ffffff', width: 794, windowWidth: 794,
+      })
+      document.body.removeChild(container)
+
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'px', format: 'a4' })
+      const pdfWidth = pdf.internal.pageSize.getWidth()
+      const pdfHeight = pdf.internal.pageSize.getHeight()
+      const scaledHeight = (canvas.height / 2) * (pdfWidth / (canvas.width / 2))
+
+      if (scaledHeight <= pdfHeight) {
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, scaledHeight)
+      } else {
+        let yOffset = 0
+        let remaining = scaledHeight
+        while (remaining > 0) {
+          pdf.addImage(imgData, 'PNG', 0, -yOffset, pdfWidth, scaledHeight)
+          remaining -= pdfHeight
+          yOffset += pdfHeight
+          if (remaining > 0) pdf.addPage()
+        }
+      }
+      const safeName = artifact.title.replace(/[^a-z0-9]/gi, '-').toLowerCase()
+      pdf.save(`${safeName}-documentation.pdf`)
+    } catch (err) {
+      console.error('[exportPDF]', err)
+    } finally {
+      setIsExporting(false)
+    }
+  }
+
+  const savedAt = content.savedAt
+    ? new Date(content.savedAt as string).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+    : new Date(artifact.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })
+
+  return (
+    <div style={{ display: 'flex', height: '100vh', flexDirection: 'column', background: T.pageBg }}>
+      <AppNavbar email={email} fullName={fullName} generationsRemaining={generationsRemaining} />
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+        <AppSidebar plan={plan} />
+
+        <main style={{ flex: 1, overflowY: 'auto', padding: '32px 40px', maxWidth: 860, marginLeft: 'auto', marginRight: 'auto', width: '100%' }}>
+          {/* Back link */}
+          <Link href="/workspace" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, color: isDark ? '#71717A' : '#9CA3AF', textDecoration: 'none', marginBottom: 24, fontFamily: 'Inter, sans-serif' }}>
+            <ArrowLeft size={14} />
+            Back to workspace
+          </Link>
+
+          {/* Result card */}
+          <div style={{ background: T.cardBg, border: `1px solid ${T.cardBorder}`, borderRadius: 14, overflow: 'hidden' }}>
+            {/* Card header */}
+            <div style={{ padding: '14px 20px', borderBottom: `1px solid ${T.cardDivider}`, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: '#6366F1', fontFamily: 'Inter, sans-serif' }}>
+                    Code Documentation
+                  </span>
+                  {content.language && content.language !== 'Auto-detect' && (
+                    <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 4, background: isDark ? 'rgba(99,102,241,0.12)' : 'rgba(99,102,241,0.08)', color: '#818CF8', fontFamily: 'Inter, sans-serif' }}>
+                      {content.language}
+                    </span>
+                  )}
+                </div>
+                <div style={{ fontSize: 17, fontWeight: 700, color: T.titleColor, fontFamily: 'Inter, sans-serif', lineHeight: 1.3 }}>
+                  {artifact.title}
+                </div>
+                <div style={{ fontSize: 11, color: T.metaColor, fontFamily: 'Inter, sans-serif', marginTop: 3 }}>
+                  Generated by Flowmapr · {savedAt}
+                </div>
+              </div>
+              {savedDiagramId && (
+                <Link
+                  href={`/diagram/${savedDiagramId}`}
+                  style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '7px 12px', borderRadius: 8, border: `1px solid ${T.actionBorder}`, background: T.actionBg, color: T.actionColor, fontSize: 12, fontFamily: 'Inter, sans-serif', fontWeight: 500, textDecoration: 'none', flexShrink: 0 }}
+                >
+                  <ExternalLink size={12} />
+                  Open diagram
+                </Link>
+              )}
+            </div>
+
+            {/* Documentation sections */}
+            {doc ? (
+              <div style={{ padding: '20px', display: 'flex', flexDirection: 'column', gap: 18 }}>
+                <DocSection title="What this code does" isDark={isDark} docSectionTitle={T.docSectionTitle}>
+                  <p style={{ fontSize: 14, color: T.docTextColor, fontFamily: 'Inter, sans-serif', lineHeight: 1.7, margin: 0 }}>{doc.summary}</p>
+                </DocSection>
+
+                <DocSection title="Why it exists" isDark={isDark} docSectionTitle={T.docSectionTitle}>
+                  <p style={{ fontSize: 14, color: T.docTextColor, fontFamily: 'Inter, sans-serif', lineHeight: 1.7, margin: 0 }}>{doc.purpose}</p>
+                </DocSection>
+
+                {doc.business_rules?.length > 0 && (
+                  <DocSection title="Key business rules" isDark={isDark} docSectionTitle={T.docSectionTitle}>
+                    <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {doc.business_rules.map((rule: string, i: number) => (
+                        <li key={i} style={{ fontSize: 14, color: T.docTextColor, fontFamily: 'Inter, sans-serif', lineHeight: 1.7 }}>{rule}</li>
+                      ))}
+                    </ul>
+                  </DocSection>
+                )}
+
+                <DocSection title="Inputs & Outputs" isDark={isDark} docSectionTitle={T.docSectionTitle}>
+                  <p style={{ fontSize: 14, color: T.docTextColor, fontFamily: 'Inter, sans-serif', lineHeight: 1.7, margin: 0 }}>
+                    <span style={{ color: T.docLabelColor }}>In: </span>{doc.inputs}
+                  </p>
+                  <p style={{ fontSize: 14, color: T.docTextColor, fontFamily: 'Inter, sans-serif', lineHeight: 1.7, margin: '4px 0 0' }}>
+                    <span style={{ color: T.docLabelColor }}>Out: </span>{doc.outputs}
+                  </p>
+                </DocSection>
+
+                {doc.edge_cases?.length > 0 && (
+                  <DocSection title="Edge cases & error handling" isDark={isDark} docSectionTitle={T.docSectionTitle}>
+                    <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                      {doc.edge_cases.map((ec: string, i: number) => (
+                        <li key={i} style={{ fontSize: 14, color: T.docTextColor, fontFamily: 'Inter, sans-serif', lineHeight: 1.7 }}>{ec}</li>
+                      ))}
+                    </ul>
+                  </DocSection>
+                )}
+
+                {doc.dependencies?.length > 0 && (
+                  <DocSection title="Dependencies" isDark={isDark} docSectionTitle={T.docSectionTitle}>
+                    <p style={{ fontSize: 14, color: T.docTextColor, fontFamily: 'Inter, sans-serif', lineHeight: 1.7, margin: 0 }}>{doc.dependencies.join(', ')}</p>
+                  </DocSection>
+                )}
+              </div>
+            ) : (
+              <div style={{ padding: 32, textAlign: 'center', color: T.metaColor, fontFamily: 'Inter, sans-serif', fontSize: 14 }}>
+                No documentation content found.
+              </div>
+            )}
+
+            {/* Footer actions */}
+            <div style={{ padding: '12px 20px', borderTop: `1px solid ${T.cardDivider}`, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+              <ActionBtn onClick={handleCopy} T={T} icon={copied ? <Check size={13} /> : <Copy size={13} />}>
+                {copied ? 'Copied!' : 'Copy as text'}
+              </ActionBtn>
+              <button
+                onClick={handleExportPDF}
+                disabled={isExporting}
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 5,
+                  padding: '6px 12px', borderRadius: 7,
+                  border: '1px solid rgba(99,102,241,0.25)',
+                  background: 'rgba(99,102,241,0.10)', cursor: isExporting ? 'not-allowed' : 'pointer',
+                  color: '#A5B4FC', fontSize: 12, fontFamily: 'Inter, sans-serif', fontWeight: 500,
+                  opacity: isExporting ? 0.7 : 1,
+                  transition: 'all 0.15s ease',
+                }}
+                onMouseEnter={e => {
+                  if (!isExporting) {
+                    e.currentTarget.style.background = 'rgba(99,102,241,0.18)'
+                    e.currentTarget.style.borderColor = 'rgba(99,102,241,0.4)'
+                  }
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'rgba(99,102,241,0.10)'
+                  e.currentTarget.style.borderColor = 'rgba(99,102,241,0.25)'
+                }}
+              >
+                <FileDown size={13} />
+                {isExporting ? 'Exporting…' : 'Export as PDF'}
+              </button>
+            </div>
+          </div>
+        </main>
+      </div>
+    </div>
+  )
+}
+
+function DocSection({ title, children, isDark, docSectionTitle }: {
+  title: string
+  children: React.ReactNode
+  isDark: boolean
+  docSectionTitle: string
+}) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6, paddingBottom: 16, borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.05)' : '#F3F4F6'}` }}>
+      <span style={{
+        fontSize: 10, fontWeight: 700, color: docSectionTitle,
+        fontFamily: 'Inter, sans-serif', textTransform: 'uppercase',
+        letterSpacing: '0.12em',
+      }}>
+        {title}
+      </span>
+      {children}
+    </div>
+  )
+}
+
+function ActionBtn({ onClick, icon, children, T }: {
+  onClick: () => void
+  icon: React.ReactNode
+  children: React.ReactNode
+  T: { actionBg: string; actionBorder: string; actionColor: string; actionHoverBg: string; actionHoverColor: string }
+}) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        display: 'flex', alignItems: 'center', gap: 5,
+        padding: '6px 12px', borderRadius: 7,
+        border: `1px solid ${T.actionBorder}`,
+        background: T.actionBg, cursor: 'pointer',
+        color: T.actionColor, fontSize: 12, fontFamily: 'Inter, sans-serif', fontWeight: 500,
+        transition: 'all 0.15s ease',
+      }}
+      onMouseEnter={e => { e.currentTarget.style.background = T.actionHoverBg; e.currentTarget.style.color = T.actionHoverColor }}
+      onMouseLeave={e => { e.currentTarget.style.background = T.actionBg; e.currentTarget.style.color = T.actionColor }}
+    >
+      {icon}
+      {children}
+    </button>
+  )
+}

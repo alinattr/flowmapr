@@ -52,6 +52,7 @@ import { DiagramTopBar } from '@/components/diagram/DiagramTopBar'
 import { PromptPanel } from '@/components/diagram/PromptPanel'
 import { UmlClassPanel } from '@/components/diagram/UmlClassPanel'
 import { GenerationLoader } from '@/components/shared/GenerationLoader'
+import { parseFlowData } from '@/lib/diagram'
 import { generatePreviewSvg } from '@/lib/diagram/generatePreviewSvg'
 import { fixBpmnLayout } from '@/lib/diagram/bpmn/fixBpmnLayout'
 import { generateBpmnXml } from '@/lib/diagram/bpmn/generateBpmnXml'
@@ -60,7 +61,6 @@ import { Eye, Columns, Code2, Copy, Check, AlertCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { saveVersion } from '@/lib/diagram/versions'
 import { HistoryPanel } from '@/components/diagram/HistoryPanel'
-import { ExplainPanel } from '@/components/diagram/ExplainPanel'
 import { FeedbackBar } from '@/components/diagram/FeedbackBar'
 import { useTheme } from '@/lib/theme/ThemeProvider'
 
@@ -146,7 +146,6 @@ function DiagramCanvasInner({
   )
   const [regenerating, setRegenerating] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
-  const [explainOpen, setExplainOpen] = useState(false)
   const [viewMode, setViewMode] = useState<'visual' | 'split' | 'code'>('visual')
   const [codeText, setCodeText] = useState('')
   const [codeError, setCodeError] = useState<string | null>(null)
@@ -275,8 +274,19 @@ function DiagramCanvasInner({
   }
 
   async function handleRegenerate(newPrompt: string, newDiagramType: string) {
-    // Save current state as a version before leaving
-    await saveVersion(diagramId, { nodes, edges, diagramType, title })
+    // Defensive fallbacks — ensure API call always has valid values
+    const promptToUse = newPrompt?.trim()
+      || initialPrompt?.trim()
+      || title?.replace(/^Code Lens\s*[—-]\s*/i, '').trim()
+      || 'Generate a diagram'
+    const typeToUse = newDiagramType?.trim() || diagramType?.trim() || 'flowchart'
+
+    // 1. Save current state as "Before regeneration" version FIRST
+    await saveVersion(
+      diagramId,
+      { nodes, edges, diagramType, title },
+      `Before regeneration · ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
+    )
 
     setRegenerating(true)
     try {
@@ -284,20 +294,16 @@ function DiagramCanvasInner({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          diagramType: newDiagramType,
-          prompt: newPrompt,
+          diagramType: typeToUse,
+          prompt: promptToUse,
+          existingDiagramId: diagramId, // update in-place — keeps version history on same diagram
         }),
       })
 
       if (res.status === 402) {
         toast.error(
           "You've used all your free generations. Upgrade to keep going.",
-          {
-            action: {
-              label: 'Upgrade',
-              onClick: () => router.push('/settings'),
-            },
-          }
+          { action: { label: 'Upgrade', onClick: () => router.push('/settings') } }
         )
         setRegenerating(false)
         return
@@ -306,7 +312,15 @@ function DiagramCanvasInner({
       if (!res.ok) throw new Error('Generation failed')
 
       const data = await res.json()
-      router.push(`/diagram/${data.diagramId}`)
+      // 2. Apply new nodes/edges in-place — no navigation, no lost history
+      const rawFlow = data.flowData as { nodes?: unknown[]; edges?: unknown[] }
+      const { nodes: newNodes, edges: newEdges } = parseFlowData(
+        rawFlow as Parameters<typeof parseFlowData>[0]
+      )
+      setNodes(newNodes)
+      setEdges(newEdges)
+      setRegenerating(false)
+      toast.success('Diagram regenerated')
     } catch {
       toast.error('Something went wrong. Please try again.')
       setRegenerating(false)
@@ -363,7 +377,6 @@ function DiagramCanvasInner({
         edges={edges}
         userPlan={userPlan}
         onHistoryOpen={() => setHistoryOpen(true)}
-        onExplainOpen={() => setExplainOpen(true)}
       />
       <HistoryPanel
         diagramId={diagramId}
@@ -371,15 +384,6 @@ function DiagramCanvasInner({
         onClose={() => setHistoryOpen(false)}
         onRestore={handleRestoreVersion}
       />
-      <ExplainPanel
-        open={explainOpen}
-        onClose={() => setExplainOpen(false)}
-        diagramType={diagramType ?? ''}
-        diagramTitle={title}
-        nodes={nodes}
-        edges={edges}
-      />
-
       {/* Tabs — only for BPMN */}
       {isBpmn && (
         <div style={{
@@ -446,6 +450,11 @@ function DiagramCanvasInner({
               <MiniMap
                 nodeColor={minimapNodeColor}
                 maskColor={isDark ? 'rgba(9,9,11,0.75)' : 'rgba(240,240,248,0.75)'}
+                style={{
+                  background: isDark ? '#0F0F17' : '#F8FAFC',
+                  border: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : '#E4E4E7'}`,
+                  borderRadius: 8,
+                }}
               />
             </ReactFlow>
 

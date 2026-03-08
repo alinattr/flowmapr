@@ -16,6 +16,7 @@ import { Loader2, Sparkles } from 'lucide-react'
 import { GenerationLoader } from '@/components/shared/GenerationLoader'
 import type { DiagramType } from '@/types/diagram'
 import { DIAGRAM_TYPES as CANONICAL_TYPES } from '@/lib/diagram-types'
+import { useActiveProject } from '@/lib/context/active-project-context'
 
 interface GenerateDialogProps {
   open: boolean
@@ -35,6 +36,7 @@ const PLACEHOLDERS: Record<string, string> = {
 
 export function GenerateDialog({ open, onOpenChange }: GenerateDialogProps) {
   const router = useRouter()
+  const { activeProjectId } = useActiveProject()
   const [diagramType, setDiagramType] = useState<DiagramType>('bpmn')
   const [prompt, setPrompt] = useState('')
   const [loading, setLoading] = useState(false)
@@ -51,7 +53,7 @@ export function GenerateDialog({ open, onOpenChange }: GenerateDialogProps) {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ diagramType, prompt: prompt.trim() }),
+        body: JSON.stringify({ diagramType, prompt: prompt.trim(), projectId: activeProjectId }),
       })
 
       if (res.status === 402) {

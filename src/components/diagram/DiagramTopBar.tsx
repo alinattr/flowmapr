@@ -62,7 +62,6 @@ interface DiagramTopBarProps {
   edges?: Edge[]
   userPlan?: string
   onHistoryOpen?: () => void
-  onExplainOpen?: () => void
 }
 
 export function DiagramTopBar({
@@ -80,7 +79,6 @@ export function DiagramTopBar({
   edges: currentEdges,
   userPlan,
   onHistoryOpen,
-  onExplainOpen,
 }: DiagramTopBarProps) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
@@ -393,21 +391,6 @@ export function DiagramTopBar({
               </div>
             </div>
           )}
-
-          {/* Explain button — available to all plans */}
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={onExplainOpen}
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
-              <circle cx="12" cy="12" r="10"/>
-              <line x1="12" y1="16" x2="12" y2="12"/>
-              <line x1="12" y1="8" x2="12.01" y2="8"/>
-            </svg>
-            Explain
-          </Button>
 
           <Button
             variant="outline"

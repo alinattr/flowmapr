@@ -9,8 +9,13 @@ export async function saveVersion(
 ): Promise<void> {
   const supabase = createClient()
 
+  // user_id is required (NOT NULL) on diagram_versions; fetch from session
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return
+
   await supabase.from('diagram_versions').insert({
     diagram_id: diagramId,
+    user_id: user.id,
     snapshot,
     label: label ?? null,
   })

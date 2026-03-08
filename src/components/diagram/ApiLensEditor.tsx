@@ -5,7 +5,9 @@ import { toast } from 'sonner'
 import { Loader2, X, Sparkles, FileCode2 } from 'lucide-react'
 import { DiagramTopBar } from './DiagramTopBar'
 import { ApiLensShell } from './ApiLensShell'
+import { HistoryPanel } from './HistoryPanel'
 import { createClient } from '@/lib/supabase/client'
+import { saveVersion } from '@/lib/diagram/versions'
 
 interface ApiEndpoint {
   id: string
@@ -62,6 +64,9 @@ export function ApiLensEditor({
   const [services, setServices] = useState<ApiService[]>(initialServices)
   const [connections, setConnections] = useState<Connection[]>(initialConnections)
 
+  // History panel state
+  const [historyOpen, setHistoryOpen] = useState(false)
+
   // Edit spec panel state
   const [editOpen, setEditOpen] = useState(false)
   const [specText, setSpecText] = useState('')
@@ -80,6 +85,15 @@ export function ApiLensEditor({
     if (!specText.trim()) return
     setAnalysing(true)
     try {
+      // Save current diagram state as a version before overwriting
+      if (services.length > 0) {
+        await saveVersion(
+          diagramId,
+          { services, connections, diagramType: 'api_lens' },
+          `Before edit · ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
+        )
+      }
+
       const res = await fetch('/api/api-lens/analyse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -121,6 +135,37 @@ export function ApiLensEditor({
     }
   }
 
+  async function handleRestore(snapshot: Record<string, unknown>) {
+    // Save current state as a version before overwriting (so user can undo)
+    if (services.length > 0) {
+      await saveVersion(
+        diagramId,
+        { services, connections, diagramType: 'api_lens' },
+        `Before restore · ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
+      )
+    }
+
+    const restoredServices = (snapshot.services as ApiService[]) ?? []
+    const restoredConnections = (snapshot.connections as Connection[]) ?? []
+
+    setServices(restoredServices)
+    setConnections(restoredConnections)
+
+    // Persist restored state to Supabase
+    const supabase = createClient()
+    await supabase
+      .from('diagrams')
+      .update({
+        flow_data: { services: restoredServices, connections: restoredConnections },
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', diagramId)
+
+    setSaveStatus('saved')
+    setTimeout(() => setSaveStatus(null), 2000)
+    toast.success('Version restored')
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', position: 'relative' }}>
       <DiagramTopBar
@@ -137,6 +182,7 @@ export function ApiLensEditor({
         nodes={[]}
         edges={[]}
         userPlan={userPlan}
+        onHistoryOpen={() => setHistoryOpen(true)}
       />
       <div style={{ flex: 1, overflow: 'hidden' }}>
         <ApiLensShell
@@ -145,8 +191,17 @@ export function ApiLensEditor({
           diagramTitle={title}
           linkedC4={linkedC4}
           onEditSpec={() => setEditOpen(true)}
+          diagramId={diagramId}
         />
       </div>
+
+      {/* History panel */}
+      <HistoryPanel
+        diagramId={diagramId}
+        open={historyOpen}
+        onClose={() => setHistoryOpen(false)}
+        onRestore={handleRestore}
+      />
 
       {/* Edit Spec slide-over panel */}
       {editOpen && (

@@ -6,15 +6,12 @@ import { Lock, Copy, Check, RotateCcw } from 'lucide-react'
 import { useTheme } from '@/lib/theme/ThemeProvider'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { AppSidebar } from '@/components/shared/AppSidebar'
-import type { DiagramSummary, Folder } from '@/types/diagram'
 
 interface ExplainImageShellProps {
   email: string
   fullName: string | null
   plan: string
   generationsRemaining: number
-  diagrams: DiagramSummary[]
-  folders: Folder[]
 }
 
 type DetailLevel = 'brief' | 'detailed'
@@ -34,8 +31,6 @@ export function ExplainImageShell({
   fullName,
   plan,
   generationsRemaining,
-  diagrams,
-  folders,
 }: ExplainImageShellProps) {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
@@ -222,18 +217,7 @@ export function ExplainImageShell({
         generationsRemaining={generationsRemaining}
       />
       <div className="flex flex-1 overflow-hidden">
-        <AppSidebar
-          plan={plan}
-          diagrams={diagrams}
-          folders={folders}
-          activeFolder={null}
-          onNewDiagram={() => {}}
-          onFolderSelect={() => {}}
-          onFolderCreate={() => Promise.resolve(null)}
-          onFolderDelete={() => Promise.resolve()}
-          onFolderRename={() => Promise.resolve()}
-          onFolderColor={() => Promise.resolve()}
-        />
+        <AppSidebar plan={plan} />
 
         {/* Main content */}
         <div className="flex flex-1 overflow-hidden">

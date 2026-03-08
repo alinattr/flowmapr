@@ -737,3 +737,4 @@
 [data-theme="dark"] .erd-diagram .react-flow__edge-path { stroke: rgba(59,130,246,0.4); }
 [data-theme="dark"] .erd-diagram .react-flow__edge-text { fill: #60A5FA; }
 [data-theme="dark"] .erd-diagram .react-flow__edge-textbg { fill: var(--color-surface); }
+

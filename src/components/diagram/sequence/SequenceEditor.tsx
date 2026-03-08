@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { DiagramTopBar } from '../DiagramTopBar'
 import { SequenceRenderer, type SequenceData, type SeqParticipant, type SeqMessage } from './SequenceRenderer'
 import { HistoryPanel } from '@/components/diagram/HistoryPanel'
-import { ExplainPanel } from '@/components/diagram/ExplainPanel'
 import { FeedbackBar } from '@/components/diagram/FeedbackBar'
 import { GenerationLoader } from '@/components/shared/GenerationLoader'
 import { createClient } from '@/lib/supabase/client'
@@ -18,7 +17,6 @@ import { Copy, Check, AlertCircle, Eye, Columns, Code2, MessageSquareText, Chevr
 
 function toPlantUML(data: SequenceData): string {
   const lines: string[] = ['@startuml']
-  if (data.title) lines.push(`title ${data.title}`)
   lines.push('')
 
   for (const p of data.participants) {
@@ -223,7 +221,6 @@ export function SequenceEditor({
   const [copied, setCopied] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
-  const [explainOpen, setExplainOpen] = useState(false)
   const [promptOpen, setPromptOpen] = useState(false)
   const [promptText, setPromptText] = useState(initialPrompt)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -288,14 +285,22 @@ export function SequenceEditor({
 
   async function handleRegenerate() {
     if (!promptText.trim()) return
-    // Save current state as a version before regenerating
-    await saveVersion(diagramId, { ...data, title } as Record<string, unknown>)
+    // 1. Save current state as "Before regeneration" version FIRST
+    await saveVersion(
+      diagramId,
+      { ...data, title } as Record<string, unknown>,
+      `Before regeneration · ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
+    )
     setRegenerating(true)
     try {
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ diagramType: 'uml_sequence', prompt: promptText.trim() }),
+        body: JSON.stringify({
+          diagramType: 'uml_sequence',
+          prompt: promptText.trim(),
+          existingDiagramId: diagramId, // update in-place — keeps version history on same diagram
+        }),
       })
 
       if (res.status === 402) {
@@ -309,7 +314,24 @@ export function SequenceEditor({
       if (!res.ok) throw new Error('Generation failed')
 
       const result = await res.json()
-      router.push(`/sequence/${result.diagramId}`)
+      // 2. Apply new sequence data in-place — no navigation, no lost history
+      const fd = result.flowData as Record<string, unknown>
+      const newData: SequenceData = {
+        title: (fd.title as string) ?? title,
+        participants: Array.isArray(fd.participants)
+          ? (fd.participants as SequenceData['participants'])
+          : data.participants,
+        messages: Array.isArray(fd.messages)
+          ? (fd.messages as SequenceData['messages'])
+          : data.messages,
+        fragments: Array.isArray(fd.fragments)
+          ? (fd.fragments as SequenceData['fragments'])
+          : [],
+      }
+      setData(newData)
+      setCodeText(toPlantUML(newData))
+      setRegenerating(false)
+      toast.success('Sequence diagram regenerated')
     } catch {
       toast.error('Something went wrong. Please try again.')
       setRegenerating(false)
@@ -371,7 +393,6 @@ export function SequenceEditor({
         edges={[]}
         userPlan={userPlan}
         onHistoryOpen={() => setHistoryOpen(true)}
-        onExplainOpen={() => setExplainOpen(true)}
       />
       <HistoryPanel
         diagramId={diagramId}
@@ -379,15 +400,6 @@ export function SequenceEditor({
         onClose={() => setHistoryOpen(false)}
         onRestore={handleRestoreVersion}
       />
-      <ExplainPanel
-        open={explainOpen}
-        onClose={() => setExplainOpen(false)}
-        diagramType="UML Sequence"
-        diagramTitle={title}
-        nodes={data.participants.map(p => ({ id: p.id, data: { label: p.label }, position: { x: p.x, y: 0 }, type: 'default' }))}
-        edges={data.messages.map(m => ({ id: m.id, source: m.from, target: m.to, label: m.label }))}
-      />
-
       {/* Tabs */}
       <div style={{
         display: 'flex', alignItems: 'center', gap: 4,
