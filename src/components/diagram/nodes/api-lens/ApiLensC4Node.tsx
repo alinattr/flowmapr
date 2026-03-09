@@ -12,43 +12,44 @@ export function ApiLensC4Node({ data }: NodeProps) {
   const [hovered, setHovered] = useState(false)
 
   const handleStyle = { width: 7, height: 7, border: 'none', opacity: 0 }
+  const distributedSourceHandles = [20, 35, 50, 65, 80]
+  const palette =
+    variant === 'person'
+      ? { bg: '#08427B', border: '#062f58', header: '#0B4E90', title: '#FFFFFF', type: 'rgba(255,255,255,0.88)', desc: 'rgba(255,255,255,0.86)', handle: '#FFFFFF' }
+      : variant === 'external'
+        ? { bg: '#999999', border: '#6b6b6b', header: '#7f7f7f', title: '#FFFFFF', type: 'rgba(255,255,255,0.88)', desc: 'rgba(255,255,255,0.86)', handle: '#FFFFFF' }
+        : { bg: '#1168BD', border: '#0e5ca8', header: '#0e5ca8', title: '#FFFFFF', type: 'rgba(255,255,255,0.88)', desc: 'rgba(255,255,255,0.86)', handle: '#FFFFFF' }
 
   if (variant === 'person') {
     return (
       <div style={{
         width: 160, padding: '14px 12px 12px',
-        background: 'rgba(99,102,241,0.15)',
-        border: '1.5px solid rgba(99,102,241,0.5)',
+        background: palette.bg,
+        border: `2px solid ${palette.border}`,
         borderRadius: 8, textAlign: 'center',
         fontFamily: 'Inter, sans-serif',
       }}>
-        <Handle type="target" position={Position.Top} style={handleStyle} />
+        <Handle id="target-top" type="target" position={Position.Top} style={handleStyle} />
         <Handle type="target" position={Position.Left} style={handleStyle} />
         <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'center' }}>
           <svg width="34" height="38" viewBox="0 0 34 38" fill="none">
-            <circle cx="17" cy="10" r="9" fill="rgba(99,102,241,0.6)" />
-            <path d="M1 37 C1 24 33 24 33 37" fill="rgba(99,102,241,0.5)" />
+            <circle cx="17" cy="10" r="9" fill="rgba(255,255,255,0.42)" />
+            <path d="M1 37 C1 24 33 24 33 37" fill="rgba(255,255,255,0.34)" />
           </svg>
         </div>
-        <div style={{ fontSize: 13, fontWeight: 700, color: '#C4B5FD', marginBottom: 2 }}>{label}</div>
-        <div style={{ fontSize: 10, color: '#818CF8', fontStyle: 'italic', marginBottom: 5 }}>[{stereotype}]</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: palette.title, marginBottom: 2 }}>{label}</div>
+        <div style={{ fontSize: 10, color: palette.type, fontStyle: 'italic', marginBottom: 5 }}>[Person]</div>
         {description && (
-          <div style={{ fontSize: 10, color: '#A5B4FC', lineHeight: 1.4 }}>{description}</div>
+          <div style={{ fontSize: 10, color: palette.desc, lineHeight: 1.4 }}>{description}</div>
         )}
-        <Handle type="source" position={Position.Bottom} style={handleStyle} />
+        {distributedSourceHandles.map((left, i) => (
+          <Handle key={`sb-${i}`} id={`source-bottom-${i + 1}`} type="source" position={Position.Bottom}
+            style={{ ...handleStyle, left: `${left}%`, background: palette.handle }} />
+        ))}
         <Handle type="source" position={Position.Right} style={handleStyle} />
       </div>
     )
   }
-
-  const isExternal = variant === 'external'
-  const borderColor = isExternal ? 'rgba(100,116,139,0.4)' : 'rgba(99,102,241,0.5)'
-  const hoverBorder = isExternal ? 'rgba(100,116,139,0.7)' : 'rgba(99,102,241,0.85)'
-  const bgColor = isExternal ? 'rgba(100,116,139,0.15)' : 'rgba(99,102,241,0.15)'
-  const hoverBg = isExternal ? 'rgba(100,116,139,0.22)' : 'rgba(99,102,241,0.22)'
-  const labelColor = isExternal ? '#94A3B8' : '#C4B5FD'
-  const stereoColor = isExternal ? '#64748B' : '#818CF8'
-  const descColor = isExternal ? '#64748B' : '#A5B4FC'
 
   return (
     <div
@@ -90,15 +91,15 @@ export function ApiLensC4Node({ data }: NodeProps) {
 
       <div style={{
         width: 180, padding: '12px',
-        background: hovered ? hoverBg : bgColor,
-        border: `1.5px solid ${hovered ? hoverBorder : borderColor}`,
+        background: hovered ? palette.header : palette.bg,
+        border: `2px solid ${palette.border}`,
         borderRadius: 8, textAlign: 'center',
         fontFamily: 'Inter, sans-serif',
-        transition: 'background 0.15s ease, border-color 0.15s ease',
+        transition: 'background 0.15s ease',
         cursor: 'pointer',
         position: 'relative',
       }}>
-        <Handle type="target" position={Position.Top} style={handleStyle} />
+        <Handle id="target-top" type="target" position={Position.Top} style={handleStyle} />
         <Handle type="target" position={Position.Left} style={handleStyle} />
 
         {/* Top-right endpoint hint */}
@@ -111,12 +112,15 @@ export function ApiLensC4Node({ data }: NodeProps) {
           ↗
         </div>
 
-        <div style={{ fontSize: 13, fontWeight: 700, color: labelColor, marginBottom: 2 }}>{label}</div>
-        <div style={{ fontSize: 10, color: stereoColor, fontStyle: 'italic', marginBottom: 5 }}>[{stereotype}]</div>
+        <div style={{ fontSize: 13, fontWeight: 700, color: palette.title, marginBottom: 2 }}>{label}</div>
+        <div style={{ fontSize: 10, color: palette.type, fontStyle: 'italic', marginBottom: 5 }}>[{stereotype}]</div>
         {description && (
-          <div style={{ fontSize: 10, color: descColor, lineHeight: 1.4 }}>{description}</div>
+          <div style={{ fontSize: 10, color: palette.desc, lineHeight: 1.4 }}>{description}</div>
         )}
-        <Handle type="source" position={Position.Bottom} style={handleStyle} />
+        {distributedSourceHandles.map((left, i) => (
+          <Handle key={`sb-${i}`} id={`source-bottom-${i + 1}`} type="source" position={Position.Bottom}
+            style={{ ...handleStyle, left: `${left}%`, background: palette.handle }} />
+        ))}
         <Handle type="source" position={Position.Right} style={handleStyle} />
       </div>
     </div>

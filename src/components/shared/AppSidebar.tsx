@@ -7,6 +7,7 @@ import { Plus, ChevronRight, MoreHorizontal, Pencil, Trash2, Check, X, ArrowUpRi
 import { useTheme } from '@/lib/theme/ThemeProvider'
 import { GenerateDialog } from '@/components/workspace/GenerateDialog'
 import { NewArtifactModal } from '@/components/workspace/NewArtifactModal'
+import { GenerationLimitUpgradeModal } from '@/components/shared/GenerationLimitUpgradeModal'
 import {
   getUserProjects,
   getProjectDiagrams,
@@ -25,22 +26,22 @@ import type { Project, DiagramSummary } from '@/types/diagram'
 // ─────────────────────────────────────────────────────────────────────────────
 function useTokens(isDark: boolean) {
   return {
-    bg:            isDark ? '#09090B'               : '#FFFFFF',
-    text:          isDark ? 'rgba(161,161,170,0.9)' : '#374151',
-    textActive:    isDark ? '#C4B5FD'               : '#111827',
-    textMuted:     isDark ? '#52525B'               : '#9CA3AF',
-    sectionLabel:  isDark ? '#3F3F46'               : '#9CA3AF',
-    activeBg:      isDark ? 'rgba(99,102,241,0.10)' : 'rgba(0,0,0,0.06)',
-    border:        isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)',
-    divider:       isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.07)',
+    bg:            isDark ? '#09090B'               : '#F7F7F8',
+    text:          isDark ? 'rgba(161,161,170,0.9)' : '#0F0F13',
+    textActive:    isDark ? '#C4B5FD'               : '#0F0F13',
+    textMuted:     isDark ? '#52525B'               : '#A1A1AA',
+    sectionLabel:  isDark ? '#3F3F46'               : '#A1A1AA',
+    activeBg:      isDark ? 'rgba(99,102,241,0.10)' : '#EAEAF0',
+    border:        isDark ? 'rgba(255,255,255,0.06)' : '#E4E4E7',
+    divider:       isDark ? 'rgba(255,255,255,0.06)' : '#E4E4E7',
     menuBg:        isDark ? '#1C1C1F'               : '#FFFFFF',
-    menuBorder:    isDark ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.10)',
-    menuShadow:    isDark ? '0 8px 32px rgba(0,0,0,0.5)' : '0 8px 32px rgba(0,0,0,0.12)',
-    upgradeTitle:  isDark ? '#C4B5FD'               : '#4F46E5',
-    upgradeDesc:   isDark ? '#71717A'               : '#6B7280',
-    newBtnBg:      isDark ? 'rgba(99,102,241,0.18)' : 'rgba(99,102,241,0.12)',
-    newBtnBorder:  isDark ? 'rgba(99,102,241,0.35)' : 'rgba(99,102,241,0.25)',
-    newBtnColor:   isDark ? '#A5B4FC'               : '#4F46E5',
+    menuBorder:    isDark ? 'rgba(255,255,255,0.10)' : '#E4E4E7',
+    menuShadow:    isDark ? '0 8px 32px rgba(0,0,0,0.5)' : '0 4px 16px rgba(0,0,0,0.08)',
+    upgradeTitle:  isDark ? '#C4B5FD'               : '#5B5BD6',
+    upgradeDesc:   isDark ? '#71717A'               : '#52525B',
+    newBtnBg:      isDark ? 'rgba(99,102,241,0.18)' : '#5B5BD6',
+    newBtnBorder:  isDark ? 'rgba(99,102,241,0.35)' : '#5B5BD6',
+    newBtnColor:   isDark ? '#A5B4FC'               : '#FFFFFF',
     dotColor:      isDark ? '#3F3F46'               : '#D1D5DB',
   }
 }
@@ -78,6 +79,7 @@ const PROJECT_COLORS = ['#6366F1', '#22C55E', '#3B82F6', '#F59E0B', '#EC4899', '
 // ─────────────────────────────────────────────────────────────────────────────
 export interface AppSidebarProps {
   plan: string
+  generationsRemaining: number
   /** Called when user confirms "Generate diagram" inside the new-artifact modal */
   onNewDiagram?: () => void
 }
@@ -85,7 +87,7 @@ export interface AppSidebarProps {
 // ─────────────────────────────────────────────────────────────────────────────
 // Main component
 // ─────────────────────────────────────────────────────────────────────────────
-export function AppSidebar({ plan, onNewDiagram }: AppSidebarProps) {
+export function AppSidebar({ plan, generationsRemaining, onNewDiagram }: AppSidebarProps) {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
   const T = useTokens(isDark)
@@ -103,6 +105,7 @@ export function AppSidebar({ plan, onNewDiagram }: AppSidebarProps) {
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set())
   const [newArtifactOpen, setNewArtifactOpen] = useState(false)
   const [generateOpen, setGenerateOpen] = useState(false)
+  const [generationLimitModalOpen, setGenerationLimitModalOpen] = useState(false)
 
   // New project inline form
   const [creatingProject, setCreatingProject] = useState(false)
@@ -116,6 +119,8 @@ export function AppSidebar({ plan, onNewDiagram }: AppSidebarProps) {
   const [projectMenu, setProjectMenu] = useState<{ id: string; x: number; y: number } | null>(null)
   const [renamingProject, setRenamingProject] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
+  const [showNewProjectTooltip, setShowNewProjectTooltip] = useState(false)
+  const tooltipTimerRef = useRef<number | null>(null)
 
   // ── Fetch data ──────────────────────────────────────────────────────────────
   const loadProjects = useCallback(async () => {
@@ -253,6 +258,16 @@ export function AppSidebar({ plan, onNewDiagram }: AppSidebarProps) {
     }
   }
 
+  const freeLimitReached = plan === 'free' && generationsRemaining <= 0
+
+  const handleNewClick = () => {
+    if (freeLimitReached) {
+      setGenerationLimitModalOpen(true)
+      return
+    }
+    setNewArtifactOpen(true)
+  }
+
   // ── Close project menu on outside click ─────────────────────────────────────
   useEffect(() => {
     if (!projectMenu) return
@@ -260,6 +275,37 @@ export function AppSidebar({ plan, onNewDiagram }: AppSidebarProps) {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [projectMenu])
+
+  useEffect(() => {
+    const DISMISS_KEY = 'flowmapr:new-project-tip-dismissed'
+
+    const dismissTooltip = () => {
+      setShowNewProjectTooltip(false)
+      localStorage.setItem(DISMISS_KEY, 'true')
+      if (tooltipTimerRef.current) {
+        window.clearTimeout(tooltipTimerRef.current)
+        tooltipTimerRef.current = null
+      }
+    }
+
+    const handleOnboardingStep = (event: Event) => {
+      const custom = event as CustomEvent<{ visible?: boolean }>
+      const visible = Boolean(custom.detail?.visible)
+      if (!visible) return
+      if (localStorage.getItem(DISMISS_KEY) === 'true') return
+      setShowNewProjectTooltip(true)
+      if (tooltipTimerRef.current) window.clearTimeout(tooltipTimerRef.current)
+      tooltipTimerRef.current = window.setTimeout(() => {
+        dismissTooltip()
+      }, 8000)
+    }
+
+    window.addEventListener('flowmapr:onboarding-step1-visible', handleOnboardingStep as EventListener)
+    return () => {
+      window.removeEventListener('flowmapr:onboarding-step1-visible', handleOnboardingStep as EventListener)
+      if (tooltipTimerRef.current) window.clearTimeout(tooltipTimerRef.current)
+    }
+  }, [])
 
   // ─────────────────────────────────────────────────────────────────────────────
   // Render
@@ -277,7 +323,7 @@ export function AppSidebar({ plan, onNewDiagram }: AppSidebarProps) {
         {/* ── [+ New] button ────────────────────────────────────────────────── */}
         <div style={{ padding: '12px 10px 8px' }}>
           <button
-            onClick={() => setNewArtifactOpen(true)}
+            onClick={handleNewClick}
             style={{
               width: '100%', padding: '9px 14px',
               borderRadius: 8, cursor: 'pointer',
@@ -295,7 +341,7 @@ export function AppSidebar({ plan, onNewDiagram }: AppSidebarProps) {
             {activeProjectName && !activeProjectIsDefault && (
               <span style={{
                 fontSize: 11, fontWeight: 400,
-                color: isDark ? '#52525B' : '#9CA3AF',
+                color: isDark ? '#52525B' : '#A1A1AA',
                 marginLeft: 2, overflow: 'hidden',
                 textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                 maxWidth: 72,
@@ -504,7 +550,7 @@ export function AppSidebar({ plan, onNewDiagram }: AppSidebarProps) {
                       style={{
                         flex: 1, padding: '5px 8px', borderRadius: 6,
                         border: `1px solid ${createProjectError ? '#EF4444' : T.divider}`,
-                        background: isDark ? 'rgba(255,255,255,0.05)' : '#F9FAFB',
+                        background: isDark ? 'rgba(255,255,255,0.05)' : '#F7F7F8',
                         color: T.text, fontSize: 12, fontFamily: 'Inter, sans-serif',
                         outline: 'none',
                       }}
@@ -538,19 +584,81 @@ export function AppSidebar({ plan, onNewDiagram }: AppSidebarProps) {
                   )}
                 </div>
               ) : (
-                <button
-                  onClick={startCreatingProject}
-                  style={{
-                    ...rowStyle(false, T),
-                    width: 'calc(100% - 8px)',
-                    border: 'none',
-                    color: T.textMuted,
-                    fontSize: 12,
-                  }}
-                >
-                  <Plus size={12} style={{ flexShrink: 0 }} />
-                  New project
-                </button>
+                <div style={{ position: 'relative' }}>
+                  <button
+                    onClick={startCreatingProject}
+                    style={{
+                      ...rowStyle(false, T),
+                      width: 'calc(100% - 8px)',
+                      border: 'none',
+                      color: T.textMuted,
+                      fontSize: 12,
+                    }}
+                  >
+                    <Plus size={12} style={{ flexShrink: 0 }} />
+                    New project
+                  </button>
+
+                  {showNewProjectTooltip && (
+                    <div
+                      style={{
+                        position: 'absolute',
+                        left: 'calc(100% + 10px)',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        width: 220,
+                        zIndex: 50,
+                        background: isDark ? '#111113' : '#FFFFFF',
+                        border: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : '#E4E4E7'}`,
+                        borderRadius: 10,
+                        boxShadow: isDark ? '0 10px 28px rgba(0,0,0,0.45)' : '0 8px 24px rgba(0,0,0,0.12)',
+                        padding: '10px 11px',
+                      }}
+                    >
+                      <div
+                        style={{
+                          position: 'absolute',
+                          left: -6,
+                          top: '50%',
+                          width: 12,
+                          height: 12,
+                          transform: 'translateY(-50%) rotate(45deg)',
+                          background: isDark ? '#111113' : '#FFFFFF',
+                          borderLeft: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : '#E4E4E7'}`,
+                          borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.12)' : '#E4E4E7'}`,
+                        }}
+                      />
+                      <div style={{ fontSize: 12, fontWeight: 700, color: isDark ? '#C4B5FD' : '#5B5BD6', marginBottom: 4 }}>
+                        💡 Stay organized
+                      </div>
+                      <div style={{ fontSize: 11.5, lineHeight: 1.45, color: isDark ? '#A1A1AA' : '#52525B', marginBottom: 8 }}>
+                        Create projects to group your diagrams by team, client, or topic.
+                      </div>
+                      <button
+                        onClick={() => {
+                          localStorage.setItem('flowmapr:new-project-tip-dismissed', 'true')
+                          setShowNewProjectTooltip(false)
+                          if (tooltipTimerRef.current) {
+                            window.clearTimeout(tooltipTimerRef.current)
+                            tooltipTimerRef.current = null
+                          }
+                        }}
+                        style={{
+                          border: 'none',
+                          background: isDark ? 'rgba(99,102,241,0.18)' : 'rgba(91,91,214,0.1)',
+                          color: isDark ? '#C4B5FD' : '#5B5BD6',
+                          borderRadius: 7,
+                          padding: '5px 9px',
+                          fontSize: 11.5,
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        Got it ✓
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -582,7 +690,7 @@ export function AppSidebar({ plan, onNewDiagram }: AppSidebarProps) {
         </div>
 
         {/* ── Upgrade card ───────────────────────────────────────────────────── */}
-        {(plan === 'free_trial' || plan === 'free') && (
+        {plan === 'free' && (
           <div style={{ padding: '10px', borderTop: `1px solid ${T.divider}`, flexShrink: 0 }}>
             <div style={{
               padding: '14px',
@@ -594,7 +702,34 @@ export function AppSidebar({ plan, onNewDiagram }: AppSidebarProps) {
                 Upgrade to Basic
               </p>
               <p style={{ fontSize: 11, color: T.upgradeDesc, fontFamily: 'Inter, sans-serif', lineHeight: 1.5, marginBottom: 10 }}>
-                Unlimited projects, 100 AI generations/month, Code Lens & more
+                100 AI generations/month, API Lens, Version History & more
+              </p>
+              <Link href="/settings" style={{
+                display: 'block', textAlign: 'center',
+                padding: '7px', borderRadius: 7,
+                background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
+                color: '#FFFFFF', fontSize: 12, fontWeight: 600,
+                fontFamily: 'Inter, sans-serif', textDecoration: 'none',
+              }}>
+                Upgrade →
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {plan === 'basic' && (
+          <div style={{ padding: '10px', borderTop: `1px solid ${T.divider}`, flexShrink: 0 }}>
+            <div style={{
+              padding: '14px',
+              borderRadius: 10,
+              background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08))',
+              border: '1px solid rgba(99,102,241,0.2)',
+            }}>
+              <p style={{ fontSize: 12, fontWeight: 700, color: T.upgradeTitle, fontFamily: 'Inter, sans-serif', marginBottom: 4 }}>
+                Upgrade to Pro
+              </p>
+              <p style={{ fontSize: 11, color: T.upgradeDesc, fontFamily: 'Inter, sans-serif', lineHeight: 1.5, marginBottom: 10 }}>
+                500 AI generations/month, Code Lens, Export to Confluence/Notion & more
               </p>
               <Link href="/settings" style={{
                 display: 'block', textAlign: 'center',
@@ -685,15 +820,23 @@ export function AppSidebar({ plan, onNewDiagram }: AppSidebarProps) {
         open={newArtifactOpen}
         onClose={() => setNewArtifactOpen(false)}
         onNewDiagram={handleNewDiagram}
+        blockDiagramGeneration={freeLimitReached}
+        onBlockedDiagramGeneration={() => setGenerationLimitModalOpen(true)}
       />
 
       {/* ── Fallback GenerateDialog (when no onNewDiagram prop) ──────────────── */}
       <GenerateDialog open={generateOpen} onOpenChange={setGenerateOpen} />
 
+      <GenerationLimitUpgradeModal
+        open={generationLimitModalOpen}
+        onOpenChange={setGenerationLimitModalOpen}
+        currentPlanLabel="Free"
+      />
+
       <style>{`
         .sidebar-nav-link:hover {
-          background: ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'} !important;
-          color: ${isDark ? '#E4E4E7' : '#111827'} !important;
+          background: ${isDark ? 'rgba(255,255,255,0.04)' : '#F0F0F2'} !important;
+          color: ${isDark ? '#E4E4E7' : '#0F0F13'} !important;
         }
         [data-theme="light"] .sidebar-nav-link:hover {
           background: rgba(0,0,0,0.04) !important;

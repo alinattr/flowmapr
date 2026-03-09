@@ -1,59 +1,18 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { DIAGRAM_TYPES as APP_DIAGRAM_TYPES, type DiagramTypeValue } from '@/lib/diagram-types'
 
-const DIAGRAM_TYPES = [
-  {
-    id: 'bpmn',
-    label: 'BPMN',
-    description: 'Business process flows',
-    icon: '⬡',
-    color: '#6366F1',
-    examplePrompt: 'Payment checkout process with card validation and fraud check',
-  },
-  {
-    id: 'uml_sequence',
-    label: 'UML Sequence',
-    description: 'System interactions over time',
-    icon: '⇄',
-    color: '#22C55E',
-    examplePrompt: 'User login flow with JWT token generation and refresh',
-  },
-  {
-    id: 'erd',
-    label: 'ERD',
-    description: 'Database schema & relations',
-    icon: '⊞',
-    color: '#3B82F6',
-    examplePrompt: 'E-commerce database with Users, Orders, Products and Payments',
-  },
-  {
-    id: 'c4_l1',
-    label: 'C4 Architecture',
-    description: 'System architecture overview',
-    icon: '◫',
-    color: '#A78BFA',
-    examplePrompt: 'Mobile banking app with Auth, Wallet, and Notification services',
-  },
-  {
-    id: 'flowchart',
-    label: 'Flowchart',
-    description: 'Decision trees & processes',
-    icon: '⌥',
-    color: '#F59E0B',
-    examplePrompt: 'KYC verification flow with document check and manual review',
-  },
-  {
-    id: 'api_lens',
-    label: 'API Lens',
-    description: 'API documentation & architecture',
-    icon: '</>',
-    color: '#EC4899',
-    examplePrompt: 'REST API with auth, users, payments and notifications endpoints',
-  },
-]
+const ONBOARDING_PROMPTS: Record<DiagramTypeValue, string> = {
+  bpmn: 'Online payment process with input validation and bank authorization',
+  uml_sequence: 'User login with JWT token generation and API authentication',
+  erd: 'Blog platform with users, posts, comments and tags',
+  flowchart: 'User registration flow with email verification and OTP',
+  c4_l1: 'E-commerce platform with mobile app, API gateway and payment service',
+  c4_l2: 'E-commerce platform containers: frontend, backend API, database, cache',
+}
 
 interface OnboardingModalProps {
   onComplete: () => void
@@ -62,22 +21,76 @@ interface OnboardingModalProps {
 
 export function OnboardingModal({ onComplete, userName }: OnboardingModalProps) {
   const [step, setStep] = useState(0)
-  const [selectedType, setSelectedType] = useState<string | null>(null)
+  const [selectedType, setSelectedType] = useState<DiagramTypeValue | null>(null)
   const [prompt, setPrompt] = useState('')
   const [generating, setGenerating] = useState(false)
   const supabase = createClient()
   const router = useRouter()
 
-  const selectedDiagram = DIAGRAM_TYPES.find(d => d.id === selectedType)
+  const selectedDiagram = useMemo(
+    () => APP_DIAGRAM_TYPES.find(d => d.value === selectedType),
+    [selectedType]
+  )
 
-  function handleSelectType(id: string) {
+  function handleSelectType(id: DiagramTypeValue) {
     setSelectedType(id)
-    const diagram = DIAGRAM_TYPES.find(d => d.id === id)
-    if (diagram) setPrompt(diagram.examplePrompt)
+    setPrompt(ONBOARDING_PROMPTS[id])
   }
 
+  useEffect(() => {
+    window.dispatchEvent(
+      new CustomEvent('flowmapr:onboarding-step1-visible', { detail: { visible: step === 0 } })
+    )
+    return () => {
+      window.dispatchEvent(
+        new CustomEvent('flowmapr:onboarding-step1-visible', { detail: { visible: false } })
+      )
+    }
+  }, [step])
+
   async function markCompleted() {
-    await supabase.auth.updateUser({ data: { onboarding_completed: true } })
+    const { data } = await supabase.auth.getUser()
+    const user = data.user
+    if (!user) {
+      console.error('Failed to update onboarding status: user is not authenticated')
+      return false
+    }
+
+    // First try regular update (existing profile row).
+    const updateAttempt = await supabase
+      .from('profiles')
+      .update({ onboarding_completed: true })
+      .eq('id', user.id)
+      .select('id')
+      .maybeSingle()
+
+    if (updateAttempt.error) {
+      console.error('Failed to update onboarding status:', updateAttempt.error)
+    }
+
+    if (!updateAttempt.error && updateAttempt.data?.id) {
+      return true
+    }
+
+    // Fallback for accounts where profile row was not created yet.
+    const upsertAttempt = await supabase
+      .from('profiles')
+      .upsert(
+        {
+          id: user.id,
+          email: user.email ?? '',
+          full_name: (user.user_metadata?.full_name as string | undefined) ?? null,
+          onboarding_completed: true,
+        },
+        { onConflict: 'id' }
+      )
+
+    if (upsertAttempt.error) {
+      console.error('Failed to upsert onboarding status:', upsertAttempt.error)
+      return false
+    }
+
+    return true
   }
 
   async function handleGenerate() {
@@ -91,22 +104,25 @@ export function OnboardingModal({ onComplete, userName }: OnboardingModalProps) 
         body: JSON.stringify({ diagramType: selectedType, prompt: prompt.trim() }),
       })
 
-      if (res.status === 402) {
+      if (res.status === 403) {
         setGenerating(false)
         toast.error("You've used all your free generations. Upgrade to keep going.")
-        await markCompleted()
-        onComplete()
         return
       }
 
       if (!res.ok) throw new Error('Generation failed')
 
       const data = await res.json() as { diagramId: string }
-      await markCompleted()
+      const updated = await markCompleted()
+      if (!updated) {
+        setGenerating(false)
+        toast.error('Could not save onboarding progress. Please try again.')
+        return
+      }
+      onComplete()
 
       let destination = `/diagram/${data.diagramId}`
-      if (selectedType === 'api_lens') destination = `/api-lens/${data.diagramId}`
-      else if (selectedType === 'uml_sequence') destination = `/sequence/${data.diagramId}`
+      if (selectedType === 'uml_sequence') destination = `/sequence/${data.diagramId}`
 
       router.push(destination)
     } catch {
@@ -116,7 +132,11 @@ export function OnboardingModal({ onComplete, userName }: OnboardingModalProps) 
   }
 
   async function handleSkip() {
-    await markCompleted()
+    const updated = await markCompleted()
+    if (!updated) {
+      toast.error('Could not save onboarding progress. Please try again.')
+      return
+    }
     onComplete()
   }
 
@@ -175,15 +195,15 @@ export function OnboardingModal({ onComplete, userName }: OnboardingModalProps) 
                   fontSize: 22, fontWeight: 700, color: '#F8FAFC',
                   margin: '0 0 8px', fontFamily: 'Inter, sans-serif',
                 }}>
-                  Welcome{firstName ? `, ${firstName}` : ''}! 👋
+                  👋 Welcome to Flowmapr{firstName ? `, ${firstName}` : ''}!
                 </h1>
                 <p style={{
                   fontSize: 14, color: '#71717A',
                   lineHeight: 1.6, margin: 0, fontFamily: 'Inter, sans-serif',
                 }}>
-                  Flowmapr turns plain text into professional diagrams in seconds.
+                  Turn your ideas into diagrams in seconds using AI.
                   <br />
-                  Let&apos;s create your first one — takes less than a minute.
+                  Let&apos;s create your first diagram — it takes under 60 seconds.
                 </p>
               </div>
 
@@ -192,12 +212,12 @@ export function OnboardingModal({ onComplete, userName }: OnboardingModalProps) 
                 gap: 8, marginBottom: 28,
               }}>
                 {[
-                  { icon: '⬡', label: 'BPMN processes' },
-                  { icon: '⇄', label: 'UML sequences' },
-                  { icon: '⊞', label: 'ERD schemas' },
-                  { icon: '◫', label: 'C4 architecture' },
-                  { icon: '⌥', label: 'Flowcharts' },
-                  { icon: '</>', label: 'API docs' },
+                  { icon: '⬡', label: 'BPMN' },
+                  { icon: '⇄', label: 'UML Sequence' },
+                  { icon: '⊞', label: 'ERD' },
+                  { icon: '⌥', label: 'Flowchart' },
+                  { icon: '◫', label: 'C4 Model (L1)' },
+                  { icon: '◧', label: 'C4 Model (L2)' },
                 ].map(item => (
                   <div key={item.label} style={{
                     padding: '10px 12px',
@@ -218,11 +238,11 @@ export function OnboardingModal({ onComplete, userName }: OnboardingModalProps) 
                 onClick={() => setStep(1)}
                 style={primaryBtnStyle}
               >
-                Let&apos;s create my first diagram →
+                Let&apos;s go →
               </button>
 
               <button onClick={handleSkip} style={skipBtnStyle}>
-                Skip tutorial, go to workspace
+                Skip for now
               </button>
             </>
           )}
@@ -232,22 +252,21 @@ export function OnboardingModal({ onComplete, userName }: OnboardingModalProps) 
             <>
               <div style={{ marginBottom: 20 }}>
                 <div style={stepLabelStyle}>Step 1 of 2</div>
-                <h2 style={stepHeadingStyle}>What would you like to diagram?</h2>
-                <p style={stepSubStyle}>Choose a diagram type — you can always change it later.</p>
+                <h2 style={stepHeadingStyle}>What would you like to create?</h2>
               </div>
 
               <div style={{
-                display: 'grid', gridTemplateColumns: '1fr 1fr',
+                display: 'grid', gridTemplateColumns: '1fr 1fr 1fr',
                 gap: 8, marginBottom: 24,
               }}>
-                {DIAGRAM_TYPES.map(type => (
+                {APP_DIAGRAM_TYPES.map(type => (
                   <button
-                    key={type.id}
-                    onClick={() => handleSelectType(type.id)}
+                    key={type.value}
+                    onClick={() => handleSelectType(type.value)}
                     style={{
                       padding: '14px', borderRadius: 12,
-                      background: selectedType === type.id ? `${type.color}14` : 'rgba(255,255,255,0.03)',
-                      border: selectedType === type.id
+                      background: selectedType === type.value ? `${type.color}14` : 'rgba(255,255,255,0.03)',
+                      border: selectedType === type.value
                         ? `1.5px solid ${type.color}55`
                         : '1px solid rgba(255,255,255,0.07)',
                       cursor: 'pointer', textAlign: 'left',
@@ -255,24 +274,37 @@ export function OnboardingModal({ onComplete, userName }: OnboardingModalProps) 
                       outline: 'none',
                     }}
                   >
-                    <div style={{ fontSize: 18, marginBottom: 6, color: type.color }}>{type.icon}</div>
                     <div style={{ fontSize: 13, fontWeight: 600, color: '#E2E8F0', fontFamily: 'Inter, sans-serif', marginBottom: 2 }}>
                       {type.label}
                     </div>
-                    <div style={{ fontSize: 11, color: '#52525B', fontFamily: 'Inter, sans-serif' }}>
+                    <div style={{ fontSize: 11, color: '#71717A', fontFamily: 'Inter, sans-serif' }}>
                       {type.description}
                     </div>
                   </button>
                 ))}
               </div>
-
-              <button
-                onClick={() => selectedType && setStep(2)}
-                disabled={!selectedType}
-                style={selectedType ? primaryBtnStyle : disabledBtnStyle}
-              >
-                Continue →
-              </button>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button
+                  onClick={() => setStep(0)}
+                  style={{
+                    padding: '11px 20px',
+                    background: 'rgba(255,255,255,0.05)',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: 10, color: '#94A3B8',
+                    fontSize: 14, fontWeight: 500, fontFamily: 'Inter, sans-serif',
+                    cursor: 'pointer',
+                  }}
+                >
+                  ← Back
+                </button>
+                <button
+                  onClick={() => selectedType && setStep(2)}
+                  disabled={!selectedType}
+                  style={{ ...(selectedType ? primaryBtnStyle : disabledBtnStyle), flex: 1 }}
+                >
+                  Next →
+                </button>
+              </div>
             </>
           )}
 
@@ -281,22 +313,10 @@ export function OnboardingModal({ onComplete, userName }: OnboardingModalProps) 
             <>
               <div style={{ marginBottom: 16 }}>
                 <div style={stepLabelStyle}>Step 2 of 2</div>
-                <h2 style={stepHeadingStyle}>
-                  Describe your {selectedDiagram?.label} diagram
-                </h2>
+                <h2 style={stepHeadingStyle}>Try this example prompt:</h2>
                 <p style={stepSubStyle}>
-                  Write what you want in plain English. We pre-filled an example — edit it or write your own.
+                  ✏️ Feel free to edit it
                 </p>
-              </div>
-
-              <div style={{
-                padding: '9px 13px', marginBottom: 10,
-                background: 'rgba(99,102,241,0.06)',
-                border: '1px solid rgba(99,102,241,0.15)',
-                borderRadius: 8,
-                fontSize: 12, color: '#818CF8', fontFamily: 'Inter, sans-serif',
-              }}>
-                💡 Tip: the more detail you provide, the better the result
               </div>
 
               <textarea
@@ -352,7 +372,7 @@ export function OnboardingModal({ onComplete, userName }: OnboardingModalProps) 
                       Generating…
                     </>
                   ) : (
-                    '✦ Generate my diagram'
+                    'Generate my diagram →'
                   )}
                 </button>
               </div>

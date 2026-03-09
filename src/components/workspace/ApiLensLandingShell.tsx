@@ -7,33 +7,35 @@ import { Loader2, Sparkles } from 'lucide-react'
 import { useTheme } from '@/lib/theme/ThemeProvider'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { AppSidebar } from '@/components/shared/AppSidebar'
+import { FeatureUpgradeModal } from '@/components/shared/FeatureUpgradeModal'
 
 interface ApiLensLandingShellProps {
   email: string
   fullName: string | null
   generationsRemaining: number
   plan: string
+  locked?: boolean
 }
 
 function useAlTokens(isDark: boolean) {
   return {
-    panelBorder:         isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.07)',
-    rightPanelBg:        isDark ? 'rgba(0,0,0,0.15)'                : '#F5F5F7',
-    titleColor:          isDark ? '#F1F5F9'                         : '#111827',
-    subtitleColor:       isDark ? '#52525B'                         : '#6B7280',
-    labelColor:          isDark ? '#94A3B8'                         : '#6B7280',
-    textareaBg:          isDark ? 'rgba(255,255,255,0.03)'          : '#F9FAFB',
-    textareaBorder:      isDark ? 'rgba(255,255,255,0.08)'          : '#E5E7EB',
-    textareaColor:       isDark ? '#F1F5F9'                         : '#111827',
-    textareaFocusBorder: isDark ? 'rgba(6,182,212,0.4)'             : '#06B6D4',
-    creditsColor:        isDark ? '#52525B'                         : '#6B7280',
-    disabledBg:          isDark ? 'rgba(255,255,255,0.06)'          : '#F3F4F6',
-    disabledColor:       isDark ? '#52525B'                         : '#9CA3AF',
-    tipListColor:        isDark ? '#71717A'                         : '#6B7280',
-    emptyTitle:          isDark ? '#71717A'                         : '#374151',
-    emptyDesc:           isDark ? '#3F3F46'                         : '#6B7280',
-    loadingTitle:        isDark ? '#94A3B8'                         : '#374151',
-    loadingSubtitle:     isDark ? '#52525B'                         : '#6B7280',
+    panelBorder:         isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #E4E4E7',
+    rightPanelBg:        isDark ? 'rgba(0,0,0,0.15)'                : '#FFFFFF',
+    titleColor:          isDark ? '#F1F5F9'                         : '#0F0F13',
+    subtitleColor:       isDark ? '#52525B'                         : '#52525B',
+    labelColor:          isDark ? '#94A3B8'                         : '#52525B',
+    textareaBg:          isDark ? 'rgba(255,255,255,0.03)'          : '#FFFFFF',
+    textareaBorder:      isDark ? 'rgba(255,255,255,0.08)'          : '#E4E4E7',
+    textareaColor:       isDark ? '#F1F5F9'                         : '#0F0F13',
+    textareaFocusBorder: isDark ? 'rgba(6,182,212,0.4)'             : '#5B5BD6',
+    creditsColor:        isDark ? '#52525B'                         : '#A1A1AA',
+    disabledBg:          isDark ? 'rgba(255,255,255,0.06)'          : '#F7F7F8',
+    disabledColor:       isDark ? '#52525B'                         : '#A1A1AA',
+    tipListColor:        isDark ? '#71717A'                         : '#52525B',
+    emptyTitle:          isDark ? '#71717A'                         : '#0F0F13',
+    emptyDesc:           isDark ? '#3F3F46'                         : '#52525B',
+    loadingTitle:        isDark ? '#94A3B8'                         : '#0F0F13',
+    loadingSubtitle:     isDark ? '#52525B'                         : '#52525B',
   }
 }
 
@@ -42,6 +44,7 @@ export function ApiLensLandingShell({
   fullName,
   generationsRemaining,
   plan,
+  locked = false,
 }: ApiLensLandingShellProps) {
   const router = useRouter()
   const { theme } = useTheme()
@@ -50,8 +53,13 @@ export function ApiLensLandingShell({
 
   const [spec, setSpec] = useState('')
   const [loading, setLoading] = useState(false)
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
 
   async function handleGenerate() {
+    if (locked) {
+      setUpgradeModalOpen(true)
+      return
+    }
     if (!spec.trim()) {
       toast.error('Please paste your OpenAPI spec or describe your API')
       return
@@ -64,11 +72,16 @@ export function ApiLensLandingShell({
         body: JSON.stringify({ diagramType: 'api_lens', prompt: spec.trim() }),
       })
 
-      if (res.status === 402) {
+      if (res.status === 403) {
         setLoading(false)
-        toast.error("Generation limit reached. Upgrade to continue.", {
-          action: { label: 'Upgrade', onClick: () => router.push('/settings?tab=billing') },
-        })
+        const data = await res.json().catch(() => ({}))
+        if (data?.error === 'feature_not_available') {
+          setUpgradeModalOpen(true)
+        } else {
+          toast.error('Generation limit reached. Upgrade to continue.', {
+            action: { label: 'Upgrade', onClick: () => router.push('/settings?tab=billing') },
+          })
+        }
         return
       }
       if (!res.ok) throw new Error('Generation failed')
@@ -84,10 +97,10 @@ export function ApiLensLandingShell({
   const canGenerate = spec.trim().length > 0 && !loading
 
   return (
-    <div style={{ display: 'flex', height: '100vh', flexDirection: 'column', background: 'var(--color-bg, #09090B)' }}>
+    <div style={{ display: 'flex', height: '100vh', flexDirection: 'column', background: 'var(--color-bg)' }}>
       <AppNavbar email={email} fullName={fullName} generationsRemaining={generationsRemaining} />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <AppSidebar plan={plan} />
+        <AppSidebar plan={plan} generationsRemaining={generationsRemaining} />
 
         <main style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {/* Left panel — input */}
@@ -218,7 +231,40 @@ export function ApiLensLandingShell({
             padding: 40, gap: 16,
             background: T.rightPanelBg,
           }}>
-            {loading ? (
+            {locked ? (
+              <div
+                style={{
+                  width: 'min(520px, 100%)',
+                  borderRadius: 14,
+                  border: '1px solid rgba(91,91,214,0.2)',
+                  background: 'rgba(91,91,214,0.05)',
+                  padding: '22px 20px',
+                  textAlign: 'center',
+                }}
+              >
+                <p style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#5B5BD6', fontFamily: 'Inter, sans-serif' }}>
+                  Upgrade to Basic to use API Lens
+                </p>
+                <p style={{ margin: '8px 0 14px', fontSize: 13, color: T.subtitleColor, fontFamily: 'Inter, sans-serif' }}>
+                  API Lens is available on Basic and Pro plans.
+                </p>
+                <button
+                  onClick={() => setUpgradeModalOpen(true)}
+                  style={{
+                    padding: '9px 14px',
+                    borderRadius: 9,
+                    border: 'none',
+                    background: '#5B5BD6',
+                    color: '#fff',
+                    fontSize: 13,
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                  }}
+                >
+                  Upgrade plan
+                </button>
+              </div>
+            ) : loading ? (
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
                 <div style={{
                   width: 56, height: 56, borderRadius: '50%',
@@ -267,6 +313,12 @@ export function ApiLensLandingShell({
           </div>
         </main>
       </div>
+      <FeatureUpgradeModal
+        open={upgradeModalOpen}
+        onOpenChange={setUpgradeModalOpen}
+        featureName="API Lens"
+        requiredPlan="basic"
+      />
     </div>
   )
 }

@@ -161,7 +161,7 @@ export function CodeLensDetailShell({ email, fullName, plan, generationsRemainin
     <div style={{ display: 'flex', height: '100vh', flexDirection: 'column', background: T.pageBg }}>
       <AppNavbar email={email} fullName={fullName} generationsRemaining={generationsRemaining} />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <AppSidebar plan={plan} />
+        <AppSidebar plan={plan} generationsRemaining={generationsRemaining} />
 
         <main style={{ flex: 1, overflowY: 'auto', padding: '32px 40px', maxWidth: 860, marginLeft: 'auto', marginRight: 'auto', width: '100%' }}>
           {/* Back link */}

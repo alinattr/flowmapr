@@ -7,6 +7,7 @@ import { SequenceRenderer, type SequenceData, type SeqParticipant, type SeqMessa
 import { HistoryPanel } from '@/components/diagram/HistoryPanel'
 import { FeedbackBar } from '@/components/diagram/FeedbackBar'
 import { GenerationLoader } from '@/components/shared/GenerationLoader'
+import { FeatureUpgradeModal } from '@/components/shared/FeatureUpgradeModal'
 import { createClient } from '@/lib/supabase/client'
 import { saveVersion } from '@/lib/diagram/versions'
 import { generateSequencePreview } from '@/lib/diagram/generatePreviewSvg'
@@ -220,6 +221,7 @@ export function SequenceEditor({
   const [viewMode, setViewMode] = useState<ViewMode>('visual')
   const [copied, setCopied] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [promptOpen, setPromptOpen] = useState(false)
   const [promptText, setPromptText] = useState(initialPrompt)
@@ -303,10 +305,15 @@ export function SequenceEditor({
         }),
       })
 
-      if (res.status === 402) {
-        toast.error("You've used all your free generations. Upgrade to keep going.", {
-          action: { label: 'Upgrade', onClick: () => router.push('/settings') },
-        })
+      if (res.status === 403) {
+        const payload = await res.json().catch(() => ({}))
+        if (payload?.feature === 'update_diagram_ai') {
+          setUpgradeModalOpen(true)
+        } else {
+          toast.error("You've used all your monthly generations. Upgrade to keep going.", {
+            action: { label: 'Upgrade', onClick: () => router.push('/settings') },
+          })
+        }
         setRegenerating(false)
         return
       }
@@ -600,6 +607,12 @@ export function SequenceEditor({
           />
         </div>
       )}
+      <FeatureUpgradeModal
+        open={upgradeModalOpen}
+        onOpenChange={setUpgradeModalOpen}
+        featureName="Update Diagram with AI"
+        requiredPlan="basic"
+      />
     </div>
   )
 }

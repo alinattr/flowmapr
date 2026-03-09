@@ -36,7 +36,7 @@ const SECTIONS = [
   },
   {
     title: '8. Your Rights',
-    content: 'You have the right to access, correct, or delete your personal data at any time from your account settings. For data requests or concerns, contact us at privacy@flowmapr.com.',
+    content: 'You have the right to access, correct, or delete your personal data at any time from your account settings. For data requests or concerns, contact us at support@flowmapr.com.',
   },
   {
     title: '9. Security',
@@ -48,7 +48,7 @@ const SECTIONS = [
   },
   {
     title: '11. Contact Us',
-    content: 'For privacy-related questions or requests, contact us at privacy@flowmapr.com.',
+    content: 'For privacy-related questions or requests, contact us at support@flowmapr.com.',
   },
 ]
 

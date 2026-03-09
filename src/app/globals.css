@@ -237,8 +237,24 @@
 
 /* ── LIGHT THEME TOKENS ── */
 [data-theme="light"] {
-  --color-bg-primary: #FAFAFA;
-  --color-bg-secondary: #FFFFFF;
+  --color-bg:               #FFFFFF;
+  --color-bg-primary:       #FFFFFF;
+  --color-bg-secondary:     #F7F7F8;
+  --color-surface:          #FFFFFF;
+  --color-surface-raised:   #F7F7F8;
+  --color-border:           #E4E4E7;
+  --color-text-primary:     #0F0F13;
+  --color-text-secondary:   #52525B;
+  --color-text-tertiary:    #A1A1AA;
+  --color-text-disabled:    #C4C4CC;
+  --color-accent-brand:     #5B5BD6;
+  --color-accent-hover:     #4747C2;
+  --color-accent-subtle:    rgba(91,91,214,0.08);
+  --color-success:          #16A34A;
+  --color-warning:          #D97706;
+  --color-danger:           #DC2626;
+  --color-diagram-bg:       #F7F7F8;
+  --color-diagram-grid:     #E4E4E7;
 }
 
 /* ── AURORA ANIMATIONS ── */
@@ -316,8 +332,8 @@
 }
 
 [data-theme="light"] .sidebar-nav-link:hover {
-  background: rgba(0,0,0,0.04) !important;
-  color: #111827 !important;
+  background: #F0F0F2 !important;
+  color: #0F0F13 !important;
 }
 
 /* ── SIDEBAR FOLDER MENU BUTTON HOVER ── */
@@ -426,12 +442,26 @@
 
 /* ── LIGHT THEME SIDEBAR FALLBACK ── */
 [data-theme="light"] .app-sidebar {
-  background: rgba(250,250,250,0.95) !important;
-  border-right: 1px solid rgba(0,0,0,0.08) !important;
+  background: #F7F7F8 !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border-right: 1px solid #E4E4E7 !important;
 }
 
 [data-theme="light"] .app-sidebar::before {
   background: radial-gradient(ellipse at 30% 20%, rgba(99,102,241,0.04) 0%, transparent 60%);
+}
+
+[data-theme="light"] .diagram-card:hover .thumbnail-overlay {
+  background: rgba(255,255,255,0.88);
+}
+
+[data-theme="light"] .diagram-card:hover .thumbnail-overlay-label {
+  color: #0F0F13;
+}
+
+[data-theme="light"] .api-lens-endpoint:hover {
+  background: #F0F0F2 !important;
 }
 
 /* ── REACT FLOW EDGE ── */
@@ -443,6 +473,11 @@
 
 .react-flow__edge:hover .react-flow__edge-path {
   stroke: var(--color-accent-brand);
+}
+
+.flowchart-canvas[data-mode="view"] .react-flow__handle {
+  opacity: 0 !important;
+  pointer-events: none !important;
 }
 
 .react-flow__node:hover .react-flow__handle {

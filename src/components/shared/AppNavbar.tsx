@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -32,6 +33,7 @@ export function AppNavbar({
   const router = useRouter()
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  const [plan, setPlan] = useState<string | null>(null)
 
   const initials = fullName
     ? fullName
@@ -47,6 +49,28 @@ export function AppNavbar({
     await supabase.auth.signOut()
     router.push('/')
   }
+
+  useEffect(() => {
+    let active = true
+    const supabase = createClient()
+
+    const loadPlan = async () => {
+      const { data: authData } = await supabase.auth.getUser()
+      const user = authData.user
+      if (!user || !active) return
+      const { data } = await supabase
+        .from('subscriptions')
+        .select('plan')
+        .eq('user_id', user.id)
+        .maybeSingle()
+      if (active) setPlan(data?.plan ?? 'free')
+    }
+
+    loadPlan()
+    return () => { active = false }
+  }, [])
+
+  const isPaidPlan = plan === 'basic' || plan === 'pro'
 
   return (
     <header className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4">
@@ -102,12 +126,14 @@ export function AppNavbar({
                 Settings
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <Link href="/settings">
-                <CreditCard className="mr-2 h-4 w-4" strokeWidth={1.5} />
-                Billing
-              </Link>
-            </DropdownMenuItem>
+            {isPaidPlan && (
+              <DropdownMenuItem asChild>
+                <Link href="/settings#billing">
+                  <CreditCard className="mr-2 h-4 w-4" strokeWidth={1.5} />
+                  Subscription
+                </Link>
+              </DropdownMenuItem>
+            )}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout}>
               <LogOut className="mr-2 h-4 w-4" strokeWidth={1.5} />

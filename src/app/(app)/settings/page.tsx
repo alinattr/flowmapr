@@ -21,7 +21,7 @@ export default async function Settings() {
 
   const { data: sub } = await supabase
     .from('subscriptions')
-    .select('plan, generations_used, monthly_limit')
+    .select('plan, generations_used, monthly_limit, status, period_end')
     .eq('user_id', user.id)
     .single()
 
@@ -30,8 +30,10 @@ export default async function Settings() {
       email={email}
       fullName={fullName}
       generationsUsed={sub?.generations_used ?? 0}
-      monthlyLimit={sub?.monthly_limit ?? 2}
-      plan={sub?.plan ?? 'free_trial'}
+      monthlyLimit={sub?.monthly_limit ?? 5}
+      plan={sub?.plan ?? 'free'}
+      subscriptionStatus={sub?.status ?? null}
+      subscriptionPeriodEnd={sub?.period_end ?? null}
     />
   )
 }

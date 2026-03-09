@@ -39,7 +39,7 @@ export default async function CodeLensDetailPage({ params }: Props) {
     <CodeLensDetailShell
       email={user.email ?? ''}
       fullName={(user.user_metadata?.full_name as string) ?? null}
-      plan={sub?.plan ?? 'free_trial'}
+      plan={sub?.plan ?? 'free'}
       generationsRemaining={sub ? sub.monthly_limit - sub.generations_used : 2}
       artifact={artifact}
     />

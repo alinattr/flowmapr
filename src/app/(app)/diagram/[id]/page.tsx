@@ -45,7 +45,7 @@ export default async function DiagramPage({ params }: PageProps) {
   const generationsRemaining = sub
     ? sub.monthly_limit - sub.generations_used
     : 0
-  const userPlan = sub?.plan ?? 'free_trial'
+  const userPlan = sub?.plan ?? 'free'
 
   const rawFlow = diagram.flow_data as { nodes?: unknown[]; edges?: unknown[] }
   const { nodes, edges } = parseFlowData(rawFlow as Parameters<typeof parseFlowData>[0])

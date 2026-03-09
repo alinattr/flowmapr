@@ -679,6 +679,7 @@ export function WorkspaceShell({
       <div className="flex flex-1 overflow-hidden">
         <AppSidebar
           plan={plan}
+          generationsRemaining={generationsRemaining}
           onNewDiagram={() => setGenerateOpen(true)}
         />
 

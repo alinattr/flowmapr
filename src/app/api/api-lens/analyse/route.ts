@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
+import { checkGenerationLimit } from '@/lib/subscriptions/checkGenerationLimit'
+import { hasFeature } from '@/lib/subscriptions/hasFeature'
+import { recordGenerationUsage } from '@/lib/subscriptions/recordGenerationUsage'
 
 const SYSTEM_PROMPT = `You are an API documentation and architecture expert.
 Given an OpenAPI spec, Swagger file, or plain-text description of API endpoints, produce:
@@ -53,6 +56,19 @@ export async function POST(request: Request) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+  const canUseApiLens = await hasFeature(user.id, 'api_lens')
+  if (!canUseApiLens) {
+    return NextResponse.json({ error: 'feature_not_available', feature: 'api_lens' }, { status: 403 })
+  }
+
+  const usage = await checkGenerationLimit(user.id)
+  if (!usage.allowed) {
+    return NextResponse.json(
+      { error: 'generation_limit_reached', plan: usage.plan, limit: usage.limit },
+      { status: 403 }
+    )
+  }
+
   const body = await request.json() as { spec?: string; prompt?: string }
   const input = body.spec ?? body.prompt ?? ''
   if (!input.trim()) return NextResponse.json({ error: 'No input provided' }, { status: 400 })
@@ -74,6 +90,11 @@ export async function POST(request: Request) {
     const text = completion.choices[0]?.message?.content
     if (!text) throw new Error('No content')
     const parsed = JSON.parse(text)
+    await recordGenerationUsage({
+      userId: user.id,
+      diagramType: 'api_lens',
+      tokensUsed: completion.usage?.total_tokens ?? null,
+    })
     return NextResponse.json(parsed)
   } catch {
     return NextResponse.json({ error: 'Failed to analyse API spec' }, { status: 500 })

@@ -78,6 +78,25 @@ export function SequenceRenderer({ data, onEdit, readOnly = false }: SequenceRen
   const { participants, messages, fragments = [] } = data
   const editable = !readOnly && !!onEdit
 
+  const participantBoxWidth = useMemo(() => {
+    const measure = (label: string) => {
+      if (typeof window === 'undefined') return label.length * 7
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) return label.length * 7
+      // Keep in sync with participant text style (11px, weight 600, Inter)
+      ctx.font = '600 11px Inter, sans-serif'
+      return ctx.measureText(label).width
+    }
+
+    const widths: Record<string, number> = {}
+    participants.forEach((p) => {
+      // 16px horizontal padding on each side + measured label width.
+      widths[p.id] = Math.max(80, Math.ceil(measure(p.label)) + 32)
+    })
+    return widths
+  }, [participants])
+
   const [editingParticipant, setEditingParticipant] = useState<string | null>(null)
   const [editingMessage, setEditingMessage] = useState<string | null>(null)
   const [showHint, setShowHint] = useState(editable)
@@ -95,8 +114,10 @@ export function SequenceRenderer({ data, onEdit, readOnly = false }: SequenceRen
 
   const totalWidth = useMemo(() => {
     if (participants.length === 0) return 600
-    return Math.max(...participants.map(p => p.x)) + PW + 80
-  }, [participants])
+    return Math.max(
+      ...participants.map((p) => p.x + PW / 2 + (participantBoxWidth[p.id] ?? PW) / 2)
+    ) + 80
+  }, [participants, participantBoxWidth])
 
   const activations = useMemo(() => {
     const result: Array<{ pid: string; cx: number; yStart: number; yEnd: number }> = []
@@ -274,6 +295,7 @@ export function SequenceRenderer({ data, onEdit, readOnly = false }: SequenceRen
       {participants.map(p => {
         const cx = p.x + PW / 2
         const isEditing = editingParticipant === p.id
+        const dynamicW = participantBoxWidth[p.id] ?? PW
 
         if (p.type === 'actor') {
           return (
@@ -289,11 +311,11 @@ export function SequenceRenderer({ data, onEdit, readOnly = false }: SequenceRen
               <line x1={cx} y1={LIFELINE_TOP - 22} x2={cx + 9} y2={LIFELINE_TOP - 10}
                 stroke={C.primaryLight} strokeWidth="1.5" />
               {isEditing ? (
-                <foreignObject x={p.x} y={LIFELINE_TOP + 2} width={PW} height="22">
+                <foreignObject x={cx - dynamicW / 2} y={LIFELINE_TOP + 2} width={dynamicW} height="22">
                   <input
                     autoFocus
                     defaultValue={p.label}
-                    style={{ ...INPUT_STYLE, textAlign: 'center' }}
+                    style={{ ...INPUT_STYLE, textAlign: 'center', whiteSpace: 'nowrap', padding: '4px 6px' }}
                     onBlur={e => commitParticipant(p.id, e.target.value)}
                     onKeyDown={e => {
                       if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
@@ -304,7 +326,7 @@ export function SequenceRenderer({ data, onEdit, readOnly = false }: SequenceRen
               ) : (
                 <text x={cx} y={LIFELINE_TOP + 14} textAnchor="middle"
                   fontSize="11" fontWeight="600" fill={C.primary}
-                  style={{ cursor: editCursor }}
+                  style={{ cursor: editCursor, whiteSpace: 'nowrap' }}
                   onDoubleClick={() => editable && setEditingParticipant(p.id)}>
                   {p.label}
                 </text>
@@ -315,14 +337,14 @@ export function SequenceRenderer({ data, onEdit, readOnly = false }: SequenceRen
 
         return (
           <g key={p.id}>
-            <rect x={p.x} y={LIFELINE_TOP - PH / 2} width={PW} height={PH} rx="4"
+            <rect x={cx - dynamicW / 2} y={LIFELINE_TOP - PH / 2} width={dynamicW} height={PH} rx="4"
               fill={C.primaryBg} stroke={C.primaryLight} strokeWidth="1.5" />
             {isEditing ? (
-              <foreignObject x={p.x + 4} y={LIFELINE_TOP - 10} width={PW - 8} height="22">
+              <foreignObject x={cx - dynamicW / 2 + 4} y={LIFELINE_TOP - 10} width={Math.max(40, dynamicW - 8)} height="22">
                 <input
                   autoFocus
                   defaultValue={p.label}
-                  style={{ ...INPUT_STYLE, textAlign: 'center' }}
+                  style={{ ...INPUT_STYLE, textAlign: 'center', whiteSpace: 'nowrap', padding: '4px 6px' }}
                   onBlur={e => commitParticipant(p.id, e.target.value)}
                   onKeyDown={e => {
                     if (e.key === 'Enter') (e.target as HTMLInputElement).blur()
@@ -333,7 +355,7 @@ export function SequenceRenderer({ data, onEdit, readOnly = false }: SequenceRen
             ) : (
               <text x={cx} y={LIFELINE_TOP + 5} textAnchor="middle"
                 fontSize="11" fontWeight="600" fill={C.primary}
-                style={{ cursor: editCursor }}
+                style={{ cursor: editCursor, whiteSpace: 'nowrap' }}
                 onDoubleClick={() => editable && setEditingParticipant(p.id)}>
                 {p.label}
               </text>

@@ -9,6 +9,7 @@ import '@xyflow/react/dist/style.css'
 import { useTheme } from '@/lib/theme/ThemeProvider'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { AppSidebar } from '@/components/shared/AppSidebar'
+import { FeatureUpgradeModal } from '@/components/shared/FeatureUpgradeModal'
 import { createClient } from '@/lib/supabase/client'
 import { getUserProjects } from '@/lib/projects'
 import type { Project } from '@/types/diagram'
@@ -39,67 +40,68 @@ interface CodeLensShellProps {
   fullName: string | null
   generationsRemaining: number
   plan: string
+  forceLocked?: boolean
 }
 
 // ─── Theme tokens ─────────────────────────────────────────────────────────────
 function useClTokens(isDark: boolean) {
   return {
-    panelBorder:          isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid rgba(0,0,0,0.07)',
-    rightPanelBg:         isDark ? 'rgba(0,0,0,0.10)'                : '#F5F5F7',
-    titleColor:           isDark ? '#F1F5F9'                         : '#111827',
-    subtitleColor:        isDark ? '#52525B'                         : '#6B7280',
+    panelBorder:          isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #E4E4E7',
+    rightPanelBg:         isDark ? 'rgba(0,0,0,0.10)'                : '#FFFFFF',
+    titleColor:           isDark ? '#F1F5F9'                         : '#0F0F13',
+    subtitleColor:        isDark ? '#52525B'                         : '#52525B',
     // Plan gate
-    planGateBg:           isDark ? 'rgba(167,139,250,0.06)'          : '#F0F0FF',
-    planGateBorder:       isDark ? '1px solid rgba(167,139,250,0.2)' : '1px solid #C7D2FE',
-    planGateTitle:        isDark ? '#C4B5FD'                         : '#4338CA',
-    planGateDesc:         isDark ? '#71717A'                         : '#4B5563',
-    planGateIconColor:    isDark ? '#A78BFA'                         : '#6366F1',
+    planGateBg:           isDark ? 'rgba(167,139,250,0.06)'          : 'rgba(91,91,214,0.04)',
+    planGateBorder:       isDark ? '1px solid rgba(167,139,250,0.2)' : '1px solid rgba(91,91,214,0.2)',
+    planGateTitle:        isDark ? '#C4B5FD'                         : '#5B5BD6',
+    planGateDesc:         isDark ? '#71717A'                         : '#52525B',
+    planGateIconColor:    isDark ? '#A78BFA'                         : '#5B5BD6',
     // Section labels
-    labelColor:           isDark ? '#94A3B8'                         : '#6B7280',
+    labelColor:           isDark ? '#94A3B8'                         : '#52525B',
     // Language pills
-    langInactiveBg:       isDark ? 'rgba(255,255,255,0.04)'          : '#F3F4F6',
-    langInactiveColor:    isDark ? '#71717A'                         : '#374151',
-    langInactiveBorder:   isDark ? 'transparent'                     : '#E5E7EB',
-    langActiveBg:         isDark ? 'rgba(167,139,250,0.15)'          : '#EDE9FE',
-    langActiveColor:      isDark ? '#C4B5FD'                         : '#4F46E5',
-    langActiveBorder:     isDark ? 'rgba(167,139,250,0.4)'           : '#C4B5FD',
+    langInactiveBg:       isDark ? 'rgba(255,255,255,0.04)'          : '#FFFFFF',
+    langInactiveColor:    isDark ? '#71717A'                         : '#52525B',
+    langInactiveBorder:   isDark ? 'transparent'                     : '#E4E4E7',
+    langActiveBg:         isDark ? 'rgba(167,139,250,0.15)'          : '#5B5BD6',
+    langActiveColor:      isDark ? '#C4B5FD'                         : '#FFFFFF',
+    langActiveBorder:     isDark ? 'rgba(167,139,250,0.4)'           : '#5B5BD6',
     // Textarea
-    textareaBg:           isDark ? 'rgba(255,255,255,0.03)'          : '#F9FAFB',
-    textareaBorder:       isDark ? 'rgba(255,255,255,0.08)'          : '#E5E7EB',
-    textareaColor:        isDark ? '#F1F5F9'                         : '#111827',
-    textareaFocusBorder:  isDark ? 'rgba(167,139,250,0.4)'           : '#A78BFA',
+    textareaBg:           isDark ? 'rgba(255,255,255,0.03)'          : '#FFFFFF',
+    textareaBorder:       isDark ? 'rgba(255,255,255,0.08)'          : '#E4E4E7',
+    textareaColor:        isDark ? '#F1F5F9'                         : '#0F0F13',
+    textareaFocusBorder:  isDark ? 'rgba(167,139,250,0.4)'           : '#5B5BD6',
     // Output toggle
-    toggleBg:             isDark ? 'rgba(255,255,255,0.04)'          : '#F3F4F6',
-    toggleBorder:         isDark ? '1px solid rgba(255,255,255,0.07)': '1px solid #E5E7EB',
-    toggleInactiveColor:  isDark ? '#71717A'                         : '#6B7280',
-    toggleActiveBg:       isDark ? 'rgba(167,139,250,0.15)'          : '#4F46E5',
+    toggleBg:             isDark ? 'rgba(255,255,255,0.04)'          : '#F7F7F8',
+    toggleBorder:         isDark ? '1px solid rgba(255,255,255,0.07)': '1px solid #E4E4E7',
+    toggleInactiveColor:  isDark ? '#71717A'                         : '#52525B',
+    toggleActiveBg:       isDark ? 'rgba(167,139,250,0.15)'          : '#5B5BD6',
     toggleActiveColor:    isDark ? '#C4B5FD'                         : '#FFFFFF',
     // Hint / credits / disabled
-    hintColor:            isDark ? '#52525B'                         : '#6B7280',
-    disabledBg:           isDark ? 'rgba(255,255,255,0.06)'          : '#F3F4F6',
-    disabledColor:        isDark ? '#52525B'                         : '#9CA3AF',
+    hintColor:            isDark ? '#52525B'                         : '#A1A1AA',
+    disabledBg:           isDark ? 'rgba(255,255,255,0.06)'          : '#F7F7F8',
+    disabledColor:        isDark ? '#52525B'                         : '#A1A1AA',
     // Empty / loading state
-    emptyTitle:           isDark ? '#71717A'                         : '#374151',
-    emptyDesc:            isDark ? '#3F3F46'                         : '#6B7280',
-    loadingTitle:         isDark ? '#94A3B8'                         : '#374151',
-    loadingSubtitle:      isDark ? '#52525B'                         : '#6B7280',
+    emptyTitle:           isDark ? '#71717A'                         : '#0F0F13',
+    emptyDesc:            isDark ? '#3F3F46'                         : '#52525B',
+    loadingTitle:         isDark ? '#94A3B8'                         : '#0F0F13',
+    loadingSubtitle:      isDark ? '#52525B'                         : '#52525B',
     // Result cards
     cardBg:               isDark ? 'rgba(255,255,255,0.02)'          : '#FFFFFF',
-    cardBorder:           isDark ? '1px solid rgba(255,255,255,0.07)': '1px solid #E5E7EB',
-    cardDivider:          isDark ? '1px solid rgba(255,255,255,0.06)': '1px solid #EAECF0',
-    cardHeaderColor:      isDark ? '#94A3B8'                         : '#374151',
-    docTextColor:         isDark ? '#CBD5E1'                         : '#374151',
-    docLabelColor:        isDark ? '#71717A'                         : '#9CA3AF',
-    docSectionTitle:      isDark ? '#6366F1'                         : '#4F46E5',
+    cardBorder:           isDark ? '1px solid rgba(255,255,255,0.07)': '1px solid #E4E4E7',
+    cardDivider:          isDark ? '1px solid rgba(255,255,255,0.06)': '1px solid #EFEFEF',
+    cardHeaderColor:      isDark ? '#94A3B8'                         : '#0F0F13',
+    docTextColor:         isDark ? '#CBD5E1'                         : '#0F0F13',
+    docLabelColor:        isDark ? '#71717A'                         : '#A1A1AA',
+    docSectionTitle:      isDark ? '#6366F1'                         : '#5B5BD6',
     // Action buttons
-    actionBg:             isDark ? 'rgba(255,255,255,0.04)'          : '#F9FAFB',
-    actionBorder:         isDark ? '1px solid rgba(255,255,255,0.08)': '1px solid #E5E7EB',
-    actionColor:          isDark ? '#94A3B8'                         : '#374151',
-    actionHoverBg:        isDark ? 'rgba(255,255,255,0.08)'          : '#F3F4F6',
-    actionHoverColor:     isDark ? '#F1F5F9'                         : '#111827',
+    actionBg:             isDark ? 'rgba(255,255,255,0.04)'          : '#F7F7F8',
+    actionBorder:         isDark ? '1px solid rgba(255,255,255,0.08)': '1px solid #E4E4E7',
+    actionColor:          isDark ? '#94A3B8'                         : '#52525B',
+    actionHoverBg:        isDark ? 'rgba(255,255,255,0.08)'          : '#F0F0F2',
+    actionHoverColor:     isDark ? '#F1F5F9'                         : '#0F0F13',
     // Diagram canvas background
-    diagramBg:            isDark ? 'rgba(255,255,255,0.04)'          : 'rgba(0,0,0,0.03)',
-    diagramPlaceholderText: isDark ? '#52525B'                       : '#9CA3AF',
+    diagramBg:            isDark ? 'rgba(255,255,255,0.04)'          : '#F7F7F8',
+    diagramPlaceholderText: isDark ? '#52525B'                       : '#A1A1AA',
   }
 }
 
@@ -110,6 +112,7 @@ export function CodeLensShell({
   fullName,
   generationsRemaining,
   plan,
+  forceLocked = false,
 }: CodeLensShellProps) {
   const router = useRouter()
   const { theme } = useTheme()
@@ -126,8 +129,9 @@ export function CodeLensShell({
   const [isExporting, setIsExporting] = useState(false)
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle')
   const [savedArtifactId, setSavedArtifactId] = useState<string | null>(null)
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
 
-  const isPlanLocked = plan === 'free' || plan === 'free_trial'
+  const isPlanLocked = forceLocked || plan !== 'pro'
 
   async function autoSaveArtifact(data: CodeLensResult, lang: Language, mode: 'doc' | 'doc_diagram') {
     setSaveState('saving')
@@ -176,6 +180,10 @@ export function CodeLensShell({
 
   async function handleAnalyse() {
     if (!code.trim() || loading) return
+    if (isPlanLocked) {
+      setUpgradeModalOpen(true)
+      return
+    }
     setSaveState('idle')
     setSavedArtifactId(null)
     setLoading(true)
@@ -190,13 +198,11 @@ export function CodeLensShell({
         }),
       })
 
-      if (res.status === 402) {
+      if (res.status === 403) {
         const data = await res.json().catch(() => ({}))
         setLoading(false)
-        if (data.code === 'PLAN_REQUIRED') {
-          toast.error('Code Lens requires Basic or Pro plan.', {
-            action: { label: 'Upgrade', onClick: () => router.push('/settings?tab=billing') },
-          })
+        if (data.feature === 'code_lens' || data.error === 'feature_not_available') {
+          setUpgradeModalOpen(true)
         } else {
           toast.error('Generation limit reached. Upgrade to continue.', {
             action: { label: 'Upgrade', onClick: () => router.push('/settings?tab=billing') },
@@ -320,13 +326,13 @@ export function CodeLensShell({
     }
   }, [result, isExporting])
 
-  const canAnalyse = code.trim().length > 0 && !loading && !isPlanLocked
+  const canAnalyse = code.trim().length > 0 && !loading
 
   return (
     <div style={{ display: 'flex', height: '100vh', flexDirection: 'column', background: 'var(--color-bg, #09090B)' }}>
       <AppNavbar email={email} fullName={fullName} generationsRemaining={creditsLeft} />
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <AppSidebar plan={plan} />
+        <AppSidebar plan={plan} generationsRemaining={creditsLeft} />
 
         <main style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
           {/* ── LEFT PANEL ── */}
@@ -372,14 +378,14 @@ export function CodeLensShell({
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                   <Lock size={14} color={T.planGateIconColor} />
                   <span style={{ fontSize: 13, fontWeight: 600, color: T.planGateTitle, fontFamily: 'Inter, sans-serif' }}>
-                    Code Lens is available on Basic and Pro plans
+                    Code Lens is available on the Pro plan
                   </span>
                 </div>
                 <p style={{ fontSize: 12, color: T.planGateDesc, fontFamily: 'Inter, sans-serif', margin: 0, lineHeight: 1.5 }}>
                   Upgrade to analyse code, generate documentation, and visualise code flows.
                 </p>
                 <button
-                  onClick={() => router.push('/settings?tab=billing')}
+                  onClick={() => setUpgradeModalOpen(true)}
                   style={{
                     padding: '8px 16px', borderRadius: 8,
                     background: 'linear-gradient(135deg, rgba(167,139,250,0.3), rgba(139,92,246,0.2))',
@@ -549,6 +555,12 @@ export function CodeLensShell({
           </div>
         </main>
       </div>
+      <FeatureUpgradeModal
+        open={upgradeModalOpen}
+        onOpenChange={setUpgradeModalOpen}
+        featureName="Code Lens"
+        requiredPlan="pro"
+      />
     </div>
   )
 }
@@ -635,12 +647,12 @@ function SaveStatusBar({
 
   if (saveState === 'idle') return null
 
-  const savingBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)'
-  const savingBorder = isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)'
-  const savedBg = isDark ? 'rgba(34,197,94,0.08)' : 'rgba(34,197,94,0.06)'
-  const savedBorder = isDark ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(34,197,94,0.25)'
-  const errorBg = isDark ? 'rgba(239,68,68,0.08)' : 'rgba(239,68,68,0.06)'
-  const errorBorder = isDark ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(239,68,68,0.25)'
+  const savingBg = isDark ? 'rgba(255,255,255,0.04)' : 'rgba(91,91,214,0.04)'
+  const savingBorder = isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(91,91,214,0.15)'
+  const savedBg = isDark ? 'rgba(34,197,94,0.08)' : 'rgba(22,163,74,0.06)'
+  const savedBorder = isDark ? '1px solid rgba(34,197,94,0.2)' : '1px solid rgba(22,163,74,0.15)'
+  const errorBg = isDark ? 'rgba(239,68,68,0.08)' : 'rgba(220,38,38,0.06)'
+  const errorBorder = isDark ? '1px solid rgba(239,68,68,0.2)' : '1px solid rgba(220,38,38,0.15)'
 
   return (
     <div style={{ position: 'relative', flexShrink: 0 }}>
@@ -683,16 +695,16 @@ function SaveStatusBar({
         <div style={{
           position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 100,
           background: isDark ? '#18181B' : '#FFFFFF',
-          border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #E5E7EB',
+          border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #E4E4E7',
           borderRadius: 10, padding: '10px 0', minWidth: 220,
           boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
           fontFamily: 'Inter, sans-serif',
         }}>
-          <div style={{ padding: '4px 14px 10px', fontSize: 11, fontWeight: 700, color: isDark ? '#71717A' : '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+          <div style={{ padding: '4px 14px 10px', fontSize: 11, fontWeight: 700, color: isDark ? '#71717A' : '#A1A1AA', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             Add to project
           </div>
           {projects.length === 0 && (
-            <div style={{ padding: '6px 14px', fontSize: 13, color: isDark ? '#71717A' : '#9CA3AF' }}>No projects yet</div>
+            <div style={{ padding: '6px 14px', fontSize: 13, color: isDark ? '#71717A' : '#A1A1AA' }}>No projects yet</div>
           )}
           {projects.map(p => (
             <button
@@ -700,17 +712,17 @@ function SaveStatusBar({
               onClick={() => setSelectedId(p.id)}
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                padding: '7px 14px', background: selectedId === p.id ? (isDark ? 'rgba(99,102,241,0.15)' : 'rgba(99,102,241,0.08)') : 'none',
+                padding: '7px 14px', background: selectedId === p.id ? (isDark ? 'rgba(99,102,241,0.15)' : 'rgba(91,91,214,0.08)') : 'none',
                 border: 'none', cursor: 'pointer', textAlign: 'left',
-                fontSize: 13, color: isDark ? '#F1F5F9' : '#111827',
+                fontSize: 13, color: isDark ? '#F1F5F9' : '#0F0F13',
               }}
             >
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: p.color, flexShrink: 0 }} />
               {p.name}
             </button>
           ))}
-          <div style={{ display: 'flex', gap: 6, padding: '10px 14px 4px', borderTop: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid #F3F4F6', marginTop: 4 }}>
-            <button onClick={() => setShowPicker(false)} style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #E5E7EB', background: 'none', cursor: 'pointer', fontSize: 12, color: isDark ? '#71717A' : '#6B7280', fontFamily: 'Inter, sans-serif' }}>
+          <div style={{ display: 'flex', gap: 6, padding: '10px 14px 4px', borderTop: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid #E4E4E7', marginTop: 4 }}>
+            <button onClick={() => setShowPicker(false)} style={{ flex: 1, padding: '6px 0', borderRadius: 6, border: isDark ? '1px solid rgba(255,255,255,0.1)' : '1px solid #E4E4E7', background: 'none', cursor: 'pointer', fontSize: 12, color: isDark ? '#71717A' : '#52525B', fontFamily: 'Inter, sans-serif' }}>
               Cancel
             </button>
             <button

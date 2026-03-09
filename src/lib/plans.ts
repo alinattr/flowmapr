@@ -1,10 +1,10 @@
 export const PLAN_LIMITS = {
-  free_trial: {
-    name: 'Free Trial',
+  free: {
+    name: 'Free',
     price: 0,
-    generations: 5,
+    generations: 3,
     features: [
-      'Generate up to 5 diagrams',
+      'Generate up to 3 diagrams',
       'All diagram types',
       'Export PNG / PDF',
     ],

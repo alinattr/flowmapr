@@ -20,7 +20,7 @@ export default async function WorkspaceExplainDiagramPage() {
     .eq('user_id', user.id)
     .single()
 
-  const plan = sub?.plan ?? 'free_trial'
+  const plan = sub?.plan ?? 'free'
   const generationsRemaining = sub ? sub.monthly_limit - sub.generations_used : 2
 
   return (

@@ -52,6 +52,7 @@ import { DiagramTopBar } from '@/components/diagram/DiagramTopBar'
 import { PromptPanel } from '@/components/diagram/PromptPanel'
 import { UmlClassPanel } from '@/components/diagram/UmlClassPanel'
 import { GenerationLoader } from '@/components/shared/GenerationLoader'
+import { FeatureUpgradeModal } from '@/components/shared/FeatureUpgradeModal'
 import { parseFlowData } from '@/lib/diagram'
 import { generatePreviewSvg } from '@/lib/diagram/generatePreviewSvg'
 import { fixBpmnLayout } from '@/lib/diagram/bpmn/fixBpmnLayout'
@@ -145,6 +146,7 @@ function DiagramCanvasInner({
     'saved'
   )
   const [regenerating, setRegenerating] = useState(false)
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
   const [historyOpen, setHistoryOpen] = useState(false)
   const [viewMode, setViewMode] = useState<'visual' | 'split' | 'code'>('visual')
   const [codeText, setCodeText] = useState('')
@@ -153,6 +155,7 @@ function DiagramCanvasInner({
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const codeDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const isBpmn = diagramType === 'bpmn'
+  const isFlowchart = diagramType === 'flowchart'
 
   useEffect(() => {
     if (nodes.length > 0 && reactFlowInstance) {
@@ -180,9 +183,23 @@ function DiagramCanvasInner({
           setCodeError('No BPMN elements found — check XML structure')
           return
         }
+        const existingPos = new Map(
+          nodes.map((n) => [n.id, n.position] as const)
+        )
+        const mergedNodes = parsed.map((n) => {
+          const prev = existingPos.get(n.id)
+          if (prev && Number.isFinite(prev.x) && Number.isFinite(prev.y)) {
+            return { ...n, position: { x: prev.x, y: prev.y } }
+          }
+          return n
+        })
+        const normalized = parseFlowData({
+          nodes: mergedNodes as Parameters<typeof parseFlowData>[0]['nodes'],
+          edges: parsedEdges as Parameters<typeof parseFlowData>[0]['edges'],
+        })
         setCodeError(null)
-        setNodes(parsed)
-        setEdges(parsedEdges)
+        setNodes(normalized.nodes as typeof nodes)
+        setEdges(normalized.edges as typeof edges)
         debouncedSave()
       } catch (e) {
         setCodeError(e instanceof Error ? e.message : 'Invalid BPMN XML')
@@ -300,11 +317,16 @@ function DiagramCanvasInner({
         }),
       })
 
-      if (res.status === 402) {
-        toast.error(
-          "You've used all your free generations. Upgrade to keep going.",
-          { action: { label: 'Upgrade', onClick: () => router.push('/settings') } }
-        )
+      if (res.status === 403) {
+        const payload = await res.json().catch(() => ({}))
+        if (payload?.feature === 'update_diagram_ai') {
+          setUpgradeModalOpen(true)
+        } else {
+          toast.error(
+            "You've used all your monthly generations. Upgrade to keep going.",
+            { action: { label: 'Upgrade', onClick: () => router.push('/settings') } }
+          )
+        }
         setRegenerating(false)
         return
       }
@@ -314,8 +336,15 @@ function DiagramCanvasInner({
       const data = await res.json()
       // 2. Apply new nodes/edges in-place — no navigation, no lost history
       const rawFlow = data.flowData as { nodes?: unknown[]; edges?: unknown[] }
+      const normalizedRawFlow =
+        typeToUse === 'bpmn'
+          ? {
+              nodes: fixBpmnLayout((rawFlow.nodes ?? []) as Parameters<typeof fixBpmnLayout>[0]),
+              edges: rawFlow.edges ?? [],
+            }
+          : rawFlow
       const { nodes: newNodes, edges: newEdges } = parseFlowData(
-        rawFlow as Parameters<typeof parseFlowData>[0]
+        normalizedRawFlow as Parameters<typeof parseFlowData>[0]
       )
       setNodes(newNodes)
       setEdges(newEdges)
@@ -331,7 +360,11 @@ function DiagramCanvasInner({
     // Save current state before overwriting
     await saveVersion(diagramId, { nodes, edges, diagramType, title }, 'Before restore')
 
-    const restoredNodes = Array.isArray(snapshot.nodes) ? snapshot.nodes as typeof nodes : nodes
+    const restoredNodesRaw = Array.isArray(snapshot.nodes) ? snapshot.nodes as typeof nodes : nodes
+    const restoredNodes =
+      diagramType === 'bpmn'
+        ? (fixBpmnLayout(restoredNodesRaw as Parameters<typeof fixBpmnLayout>[0]) as typeof nodes)
+        : restoredNodesRaw
     const restoredEdges = Array.isArray(snapshot.edges) ? snapshot.edges as typeof edges : edges
     setNodes(restoredNodes)
     setEdges(restoredEdges)
@@ -409,9 +442,11 @@ function DiagramCanvasInner({
         {showVisualPane && (
           <div
             className={
-              diagramType === 'c4_l1' || diagramType === 'c4_l2' ? 'c4-diagram' :
+              diagramType === 'c4_l1' || diagramType === 'c4_l2' ? 'c4-canvas c4-diagram' :
+              isFlowchart ? 'flowchart-canvas' :
               diagramType === 'erd' ? 'erd-diagram' : undefined
             }
+            data-mode={isFlowchart ? 'view' : undefined}
             style={{
               flex: isBpmn && viewMode === 'split' ? 1 : undefined,
               width: !isBpmn || viewMode === 'visual' ? '100%' : undefined,
@@ -570,6 +605,12 @@ function DiagramCanvasInner({
           />
         </div>
       )}
+      <FeatureUpgradeModal
+        open={upgradeModalOpen}
+        onOpenChange={setUpgradeModalOpen}
+        featureName="Update Diagram with AI"
+        requiredPlan="basic"
+      />
     </div>
   )
 }

@@ -16,6 +16,9 @@ const LANE_H = 140
 const LANE_LABEL_W = 32
 const POOL_LABEL_W = 36
 const POOL_TITLE_H = 32
+const LANE_NODE_GAP = 36
+const RIGHT_PADDING = 80
+const BOTTOM_PADDING = 24
 
 function nodeSize(type: string): { w: number; h: number } {
   if (type === 'bpmnTask') return { w: TASK_W, h: TASK_H }
@@ -43,17 +46,35 @@ export function fixBpmnLayout(nodes: BpmnNode[]): BpmnNode[] {
 
   if (content.length === 0) return result
 
-  // Fix lane positions if they exist
+  // Fix lane positions first (horizontal rows with fixed heights)
   if (lanes.length > 0) {
+    const poolX = pool?.position.x ?? 20
+    const poolY = pool?.position.y ?? 20
     lanes.forEach((lane, i) => {
-      lane.position.x = (pool?.position.x ?? 20) + POOL_LABEL_W
-      lane.position.y = (pool?.position.y ?? 20) + POOL_TITLE_H + i * LANE_H
+      lane.position.x = poolX + POOL_LABEL_W
+      lane.position.y = poolY + POOL_TITLE_H + i * LANE_H
       lane.data.height = LANE_H
     })
 
-    // Assign each content node to its closest lane by y
+    const minFlowX = poolX + POOL_LABEL_W + LANE_LABEL_W + 36
+    const laneById = new Map(lanes.map((l) => [l.id, l]))
+    const laneAssignments = new Map<string, BpmnNode>()
+
+    // 1) Assign each content node to a lane (explicit lane_id first, else closest by y)
     for (const node of content) {
-      if (node.position.x < MIN_X) node.position.x = MIN_X
+      if (node.position.x < minFlowX) node.position.x = minFlowX
+
+      const explicitLaneId =
+        typeof node.data?.lane_id === 'string'
+          ? (node.data.lane_id as string)
+          : typeof node.data?.laneId === 'string'
+            ? (node.data.laneId as string)
+            : null
+
+      if (explicitLaneId && laneById.has(explicitLaneId)) {
+        laneAssignments.set(node.id, laneById.get(explicitLaneId)!)
+        continue
+      }
 
       let bestLane = lanes[0]
       let bestDist = Infinity
@@ -65,42 +86,69 @@ export function fixBpmnLayout(nodes: BpmnNode[]): BpmnNode[] {
           bestLane = lane
         }
       }
+      laneAssignments.set(node.id, bestLane)
+    }
 
-      // Center node vertically in its lane
-      const { h } = nodeSize(node.type)
-      node.position.y = bestLane.position.y + (LANE_H - h) / 2
+    // 2) For each lane, enforce left-to-right progression and center vertically
+    for (const lane of lanes) {
+      const inLane = content
+        .filter((n) => laneAssignments.get(n.id)?.id === lane.id)
+        .sort((a, b) => a.position.x - b.position.x || a.position.y - b.position.y)
+
+      let cursorX = minFlowX
+      for (const node of inLane) {
+        const { w, h } = nodeSize(node.type)
+        node.position.x = Math.max(node.position.x, cursorX)
+        node.position.y = lane.position.y + (LANE_H - h) / 2
+        cursorX = node.position.x + w + LANE_NODE_GAP
+      }
+    }
+  } else {
+    // No explicit lanes: still force an x-flow so generated BPMN doesn't collapse vertically.
+    content.sort((a, b) => a.position.x - b.position.x || a.position.y - b.position.y)
+    let cursorX = MIN_X
+    for (const node of content) {
+      const { w } = nodeSize(node.type)
+      node.position.x = Math.max(node.position.x, cursorX)
+      cursorX = node.position.x + w + LANE_NODE_GAP
+      if (node.position.y < 80) node.position.y = 80
     }
   }
 
-  // Resolve horizontal overlaps: sort by x, push apart if too close
-  content.sort((a, b) => a.position.x - b.position.x || a.position.y - b.position.y)
+  // Resolve residual overlaps conservatively (same-row collisions)
+  const rowBucket = (y: number) => Math.round(y / 24)
+  const byRow = new Map<number, BpmnNode[]>()
+  for (const node of content) {
+    const key = rowBucket(node.position.y)
+    const row = byRow.get(key) ?? []
+    row.push(node)
+    byRow.set(key, row)
+  }
 
-  for (let i = 0; i < content.length; i++) {
-    for (let j = i + 1; j < content.length; j++) {
-      const a = content[i]
-      const b = content[j]
-      const aSize = nodeSize(a.type)
-      const bSize = nodeSize(b.type)
-
-      const dx = Math.abs(b.position.x - a.position.x)
-      const dy = Math.abs(b.position.y - a.position.y)
-      const minDx = (aSize.w + bSize.w) / 2 + 30
-      const minDy = (aSize.h + bSize.h) / 2 + 20
-
-      if (dx < minDx && dy < minDy) {
-        // Same lane row — push horizontally
-        b.position.x = a.position.x + minDx
+  for (const rowNodes of byRow.values()) {
+    rowNodes.sort((a, b) => a.position.x - b.position.x)
+    for (let i = 1; i < rowNodes.length; i++) {
+      const prev = rowNodes[i - 1]
+      const curr = rowNodes[i]
+      const prevRight = prev.position.x + nodeSize(prev.type).w
+      const minLeft = prevRight + LANE_NODE_GAP
+      if (curr.position.x < minLeft) {
+        curr.position.x = minLeft
       }
     }
   }
 
   // Fix pool and lane dimensions to contain all content
   if (pool) {
+    const poolX = pool.position.x
+    const poolY = pool.position.y
     const maxX = Math.max(...content.map(n => n.position.x + nodeSize(n.type).w))
     const maxY = Math.max(...content.map(n => n.position.y + nodeSize(n.type).h))
 
-    const poolRight = maxX + 60
-    const poolBottom = maxY + 60
+    const poolRight = maxX + RIGHT_PADDING
+    const minimumBottomFromLanes =
+      lanes.length > 0 ? poolY + POOL_TITLE_H + lanes.length * LANE_H : poolY + 260
+    const poolBottom = Math.max(maxY + BOTTOM_PADDING, minimumBottomFromLanes)
 
     pool.data.width = Math.max(
       poolRight - pool.position.x,
@@ -111,10 +159,7 @@ export function fixBpmnLayout(nodes: BpmnNode[]): BpmnNode[] {
       (pool.data.height as number) ?? 0,
     )
 
-    if (lanes.length > 0) {
-      const totalLaneH = lanes.length * LANE_H
-      pool.data.height = Math.max(pool.data.height as number, totalLaneH + POOL_TITLE_H)
-    }
+    if (lanes.length > 0) pool.data.height = Math.max(pool.data.height as number, POOL_TITLE_H + lanes.length * LANE_H)
 
     // Fix lane widths to match pool
     const laneW = (pool.data.width as number) - POOL_LABEL_W

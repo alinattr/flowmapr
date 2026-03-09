@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Loader2, Sparkles } from 'lucide-react'
+import { Sparkles } from 'lucide-react'
 import { GenerationLoader } from '@/components/shared/GenerationLoader'
 import type { DiagramType } from '@/types/diagram'
 import { DIAGRAM_TYPES as CANONICAL_TYPES } from '@/lib/diagram-types'
@@ -56,18 +56,19 @@ export function GenerateDialog({ open, onOpenChange }: GenerateDialogProps) {
         body: JSON.stringify({ diagramType, prompt: prompt.trim(), projectId: activeProjectId }),
       })
 
-      if (res.status === 402) {
+      if (res.status === 403) {
+        const payload = await res.json().catch(() => ({}))
         setLoading(false)
         onOpenChange(false)
-        toast.error(
-          "You've used all your free generations. Upgrade to keep going.",
-          {
-            action: {
-              label: 'Upgrade',
-              onClick: () => router.push('/settings'),
-            },
-          }
-        )
+        const message = payload.error === 'feature_not_available'
+          ? 'This feature is not available on your current plan.'
+          : "You've used all your monthly generations. Upgrade to keep going."
+        toast.error(message, {
+          action: {
+            label: 'Upgrade',
+            onClick: () => router.push('/settings'),
+          },
+        })
         return
       }
 

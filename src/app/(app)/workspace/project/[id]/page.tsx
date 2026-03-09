@@ -37,7 +37,17 @@ export default async function ProjectPage({ params }: Props) {
     .eq('user_id', user.id)
     .single()
 
-  const plan = sub?.plan ?? 'free_trial'
+  const profileRes = await supabase
+    .from('profiles')
+    .select('onboarding_completed')
+    .eq('id', user.id)
+    .maybeSingle()
+  // Show onboarding only when not completed.
+  // If profile row/column is missing, treat as first login and show onboarding.
+  const needsOnboarding =
+    Boolean(profileRes.error) || !Boolean(profileRes.data?.onboarding_completed)
+
+  const plan = sub?.plan ?? 'free'
   const generationsRemaining = sub ? sub.monthly_limit - sub.generations_used : 2
 
   const { data: rawDiagrams } = await supabase
@@ -75,6 +85,7 @@ export default async function ProjectPage({ params }: Props) {
       plan={plan}
       project={project}
       diagrams={diagrams}
+      needsOnboarding={needsOnboarding}
     />
   )
 }

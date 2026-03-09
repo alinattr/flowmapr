@@ -3,7 +3,9 @@ import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generatePreviewFromFlowData } from '@/lib/diagram/generatePreviewSvg'
-import { fixBpmnLayout } from '@/lib/diagram/bpmn/fixBpmnLayout'
+import { checkGenerationLimit } from '@/lib/subscriptions/checkGenerationLimit'
+import { hasFeature } from '@/lib/subscriptions/hasFeature'
+import { recordGenerationUsage } from '@/lib/subscriptions/recordGenerationUsage'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -152,30 +154,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // ── Plan check — Basic and Pro only ──────────────────────────────────────
-  const { data: sub } = await supabase
-    .from('subscriptions')
-    .select('plan, generations_used, monthly_limit')
-    .eq('user_id', user.id)
-    .single()
-
-  const plan = sub?.plan ?? 'free_trial'
-  if (plan === 'free' || plan === 'free_trial') {
+  // ── Feature gate — Pro only ───────────────────────────────────────────────
+  const canUseCodeLens = await hasFeature(user.id, 'code_lens')
+  if (!canUseCodeLens) {
     return NextResponse.json(
-      { error: 'Code Lens requires Basic or Pro plan.', code: 'PLAN_REQUIRED' },
-      { status: 402 }
+      { error: 'feature_not_available', feature: 'code_lens' },
+      { status: 403 }
     )
   }
 
-  // ── Generation quota check ────────────────────────────────────────────────
-  const admin = createAdminClient()
-  const { data: incremented } = await admin.rpc('increment_generation_counter', {
-    p_user_id: user.id,
-  })
-  if (!incremented) {
+  const usage = await checkGenerationLimit(user.id)
+  if (!usage.allowed) {
     return NextResponse.json(
-      { error: 'Generation limit reached.', code: 'LIMIT_EXHAUSTED' },
-      { status: 402 }
+      { error: 'generation_limit_reached', plan: usage.plan, limit: usage.limit },
+      { status: 403 }
     )
   }
 
@@ -209,6 +201,7 @@ export async function POST(request: Request) {
     })
 
     const rawDocText = docResponse.choices[0]?.message?.content ?? '{}'
+    const docTokens = docResponse.usage?.total_tokens ?? 0
     const docData = JSON.parse(rawDocText) as {
       summary: string
       purpose: string
@@ -222,6 +215,12 @@ export async function POST(request: Request) {
     }
 
     if (!includeDiagram) {
+      await recordGenerationUsage({
+        userId: user.id,
+        diagramId: null,
+        diagramType: 'code_lens',
+        tokensUsed: docTokens,
+      })
       return NextResponse.json({ documentation: docData }, { status: 200 })
     }
 
@@ -243,6 +242,7 @@ export async function POST(request: Request) {
     })
 
     const rawDiagramText = diagramResponse.choices[0]?.message?.content ?? '{}'
+    const totalTokens = docTokens + (diagramResponse.usage?.total_tokens ?? 0)
     const parsedDiagram = JSON.parse(rawDiagramText)
 
     let flowData: Record<string, unknown>
@@ -285,6 +285,12 @@ export async function POST(request: Request) {
 
     if (insertError || !diagram) {
       // Return without savedDiagramId — non-fatal
+      await recordGenerationUsage({
+        userId: user.id,
+        diagramId: null,
+        diagramType: 'code_lens',
+        tokensUsed: totalTokens,
+      })
       return NextResponse.json({
         documentation: docData,
         diagram: diagramType === 'uml_sequence'
@@ -294,21 +300,20 @@ export async function POST(request: Request) {
     }
 
     // Log generation + save initial version so History panel works in editor
-    await Promise.all([
-      supabase.from('generation_log').insert({
-        user_id: user.id,
-        diagram_id: diagram.id,
-        prompt: `Code Lens: ${language}`,
-        diagram_type: diagramType,
-        success: true,
-      }),
-      admin.from('diagram_versions').insert({
-        diagram_id: diagram.id,
-        user_id: user.id,
-        snapshot: { ...flowData, diagramType, title },
-        label: 'Code Lens — initial generation',
-      }),
-    ])
+    const admin = createAdminClient()
+    await admin.from('diagram_versions').insert({
+      diagram_id: diagram.id,
+      user_id: user.id,
+      snapshot: { ...flowData, diagramType, title },
+      label: 'Code Lens — initial generation',
+    })
+
+    await recordGenerationUsage({
+      userId: user.id,
+      diagramId: diagram.id,
+      diagramType: 'code_lens',
+      tokensUsed: totalTokens,
+    })
 
     return NextResponse.json({
       documentation: docData,

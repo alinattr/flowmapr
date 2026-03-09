@@ -52,159 +52,125 @@ interface ApiLensShellProps {
   diagramId?: string
 }
 
+function cleanText(value: string | undefined | null): string {
+  return String(value ?? '').trim()
+}
+
+function isPlaceholder(value: string | undefined | null): boolean {
+  return /^\s*\[[^\]]+\]\s*$/.test(String(value ?? ''))
+}
+
+function withFallbackDescription(
+  label: string,
+  variant: 'person' | 'internal' | 'external',
+  description?: string | null,
+): string {
+  const clean = cleanText(description)
+  if (clean && !isPlaceholder(clean)) return clean
+  if (variant === 'person') return `${label} interacts with the platform.`
+  if (variant === 'external') return `${label} is an external system integration.`
+  return `${label} provides core platform capabilities.`
+}
+
+function summarizeEndpoints(endpoints: ApiEndpoint[], limit = 2): string {
+  return endpoints
+    .slice(0, limit)
+    .map((e) => `${e.method} ${e.path}`)
+    .join(', ')
+}
+
+function primaryEndpointLabel(endpoints: ApiEndpoint[]): string {
+  const first = endpoints[0]
+  if (!first) return 'Uses API'
+  return `${first.method} ${first.path}`
+}
+
+function shortL1ActionLabel(service: ApiService): string {
+  const name = cleanText(service.name).toLowerCase()
+  const has = (re: RegExp) =>
+    re.test(name) || service.endpoints.some((e) => re.test(e.path.toLowerCase()))
+
+  if (has(/auth|login|token|otp|register/)) return 'Authenticates via'
+  if (has(/wallet|balance|topup|payment/)) return 'Manages wallet via'
+  if (has(/transaction|transfer|statement|history/)) return 'Queries transactions via'
+  return 'Uses'
+}
+
 // ─── C4 L1 node builder (system context view) ─────────────────────────────────
 
 function buildC4L1(
   services: ApiService[],
-  connections: Connection[],
+  _connections: Connection[],
 ): { nodes: Node[]; edges: Edge[] } {
+  const clientId = '__client'
+  const visibleServices = services.filter((s) => cleanText(s.name).length > 0)
+  const systemNodeIds: string[] = []
   const builtNodes: Node[] = []
   const builtEdges: Edge[] = []
 
-  const appSvcs = services.filter(s => s.kind !== 'external' && s.kind !== 'database' && s.kind !== 'cache')
-  const dbSvcs = services.filter(s => s.kind === 'database' || s.kind === 'cache')
-  const externalSvcs = services.filter(s => s.kind === 'external')
+  const count = Math.max(visibleServices.length, 1)
+  const spacingX = 250
+  const totalWidth = (count - 1) * spacingX
+  const centerX = 520
+  const startX = centerX - totalWidth / 2
+  const systemsY = 260
 
-  // Person node
   builtNodes.push({
-    id: '__person',
+    id: clientId,
     type: 'apiLensC4',
-    position: { x: 100, y: 40 },
+    position: { x: centerX, y: 50 },
     data: {
       variant: 'person',
       label: 'Client',
       stereotype: 'Person',
-      description: 'End user of the application',
+      description: 'End user interacting with the platform.',
     },
   })
 
-  // Gateway / first app service as entry point
-  const gatewayOrFirst = services.find(s => s.kind === 'gateway') ?? appSvcs[0]
-  if (gatewayOrFirst) {
+  visibleServices.forEach((svc, i) => {
+    const label = cleanText(svc.name)
+    if (!label) return
+    const isExternal = svc.kind === 'external'
+    const stereotype = isExternal
+      ? (svc.technology ? `Software System: ${svc.technology}` : 'Software System')
+      : 'Software System'
+    const desc = withFallbackDescription(
+      label,
+      isExternal ? 'external' : 'internal',
+      summarizeEndpoints(svc.endpoints) || `${svc.endpoints.length} endpoint${svc.endpoints.length !== 1 ? 's' : ''}`,
+    )
     builtNodes.push({
-      id: '__entry',
+      id: svc.id,
       type: 'apiLensC4',
-      position: { x: 100, y: 220 },
+      position: { x: startX + i * spacingX, y: systemsY },
       data: {
-        variant: 'internal',
-        label: gatewayOrFirst.name,
-        stereotype: gatewayOrFirst.technology ? `Container: ${gatewayOrFirst.technology}` : 'Software System',
-        description: `${gatewayOrFirst.endpoints.length} endpoint${gatewayOrFirst.endpoints.length !== 1 ? 's' : ''}`,
+        variant: isExternal ? 'external' : 'internal',
+        label,
+        stereotype,
+        description: desc,
       },
     })
+    systemNodeIds.push(svc.id)
+  })
+
+  // Canonical L1: Client -> each system (no service-to-service edges on L1)
+  systemNodeIds.forEach((targetId, idx) => {
+    const svc = visibleServices.find((s) => s.id === targetId)
     builtEdges.push({
-      id: '__person-entry',
-      source: '__person',
-      target: '__entry',
-      label: 'Uses',
+      id: `l1-client-${targetId}`,
+      source: clientId,
+      target: targetId,
+      sourceHandle: `source-bottom-${(idx % 5) + 1}`,
+      targetHandle: 'target-top',
+      label: svc ? shortL1ActionLabel(svc) : 'Uses',
       type: 'smoothstep',
-      style: { stroke: 'rgba(99,102,241,0.45)', strokeWidth: 1.5 },
+      style: { stroke: 'rgba(17,104,189,0.45)', strokeWidth: 1.5 },
       labelStyle: { fontSize: 10, fill: '#64748B', fontFamily: 'Inter' },
-      markerEnd: { type: 'arrowclosed', width: 14, height: 14, color: 'rgba(99,102,241,0.5)' },
-    } as Edge)
-  }
-
-  // Remaining app services in a grid
-  const remainingApp = appSvcs.filter(s => s.id !== gatewayOrFirst?.id)
-  remainingApp.forEach((svc, i) => {
-    const col = i % 3
-    const row = Math.floor(i / 3)
-    builtNodes.push({
-      id: svc.id,
-      type: 'apiLensC4',
-      position: { x: 340 + col * 220, y: 120 + row * 180 },
-      data: {
-        variant: 'internal',
-        label: svc.name,
-        stereotype: svc.technology ? `Container: ${svc.technology}` : 'Software System',
-        description: svc.endpoints.slice(0, 2).map(e => `${e.method} ${e.path}`).join('\n') || '',
-      },
-    })
-    if (gatewayOrFirst) {
-      builtEdges.push({
-        id: `__entry-${svc.id}`,
-        source: '__entry',
-        target: svc.id,
-        label: 'Calls',
-        type: 'smoothstep',
-        style: { stroke: 'rgba(99,102,241,0.35)', strokeWidth: 1.5 },
-        labelStyle: { fontSize: 10, fill: '#64748B', fontFamily: 'Inter' },
-        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(99,102,241,0.45)' },
-      } as Edge)
-    }
-  })
-
-  // Database / cache nodes
-  dbSvcs.forEach((svc, i) => {
-    const rows = Math.ceil(remainingApp.length / 3)
-    builtNodes.push({
-      id: svc.id,
-      type: 'apiLensC4',
-      position: { x: 340 + i * 220, y: 120 + rows * 180 + 60 },
-      data: {
-        variant: 'internal',
-        label: svc.name,
-        stereotype: svc.kind === 'cache' ? 'Container: Cache' : 'Container: Database',
-        description: `${svc.endpoints.length} operation${svc.endpoints.length !== 1 ? 's' : ''}`,
-      },
-    })
-    const connectFrom = remainingApp[0]?.id ?? '__entry'
-    if (connectFrom) {
-      builtEdges.push({
-        id: `__app-${svc.id}`,
-        source: connectFrom,
-        target: svc.id,
-        label: 'Reads/Writes',
-        type: 'smoothstep',
-        style: { stroke: 'rgba(59,130,246,0.4)', strokeWidth: 1.5 },
-        labelStyle: { fontSize: 10, fill: '#64748B', fontFamily: 'Inter' },
-        markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(59,130,246,0.45)' },
-      } as Edge)
-    }
-  })
-
-  // External systems
-  externalSvcs.forEach((svc, i) => {
-    builtNodes.push({
-      id: svc.id,
-      type: 'apiLensC4',
-      position: { x: 820, y: 180 + i * 200 },
-      data: {
-        variant: 'external',
-        label: svc.name,
-        stereotype: svc.technology ? `External: ${svc.technology}` : 'External System',
-        description: `${svc.endpoints.length} endpoint${svc.endpoints.length !== 1 ? 's' : ''}`,
-      },
-    })
-  })
-
-  // Map explicit connections
-  const existingIds = new Set(builtNodes.map(n => n.id))
-  connections.forEach(c => {
-    if (!existingIds.has(c.source) || !existingIds.has(c.target)) return
-    const isExternal = services.find(s => s.id === c.source)?.kind === 'external'
-    builtEdges.push({
-      id: `conn-${c.id}`,
-      source: c.source,
-      target: c.target,
-      label: c.label,
-      type: 'smoothstep',
-      style: { stroke: isExternal ? 'rgba(100,116,139,0.45)' : 'rgba(99,102,241,0.35)', strokeWidth: 1.5 },
-      labelStyle: { fontSize: 10, fill: '#64748B', fontFamily: 'Inter' },
-      markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: isExternal ? 'rgba(100,116,139,0.5)' : 'rgba(99,102,241,0.45)' },
+      markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(17,104,189,0.5)' },
     } as Edge)
   })
 
-  // Deduplicate edges
-  const seen = new Set<string>()
-  const dedupedEdges = builtEdges.filter(e => {
-    const key = `${e.source}-${e.target}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
-
-  return { nodes: builtNodes, edges: dedupedEdges }
+  return { nodes: builtNodes, edges: builtEdges }
 }
 
 // ─── C4 L2 node builder (container detail view) ───────────────────────────────
@@ -216,8 +182,28 @@ function buildC4L2(
   const nodes: Node[] = []
   const edges: Edge[] = []
   const idMap: Record<string, string> = {}
+  const clientId = '__client-l2'
 
-  services.forEach((svc, i) => {
+  const containerServices = services.filter((svc) => cleanText(svc.name).length > 0)
+  const count = Math.max(containerServices.length, 1)
+  const spacingX = 280
+  const totalWidth = (count - 1) * spacingX
+  const centerX = 500
+  const startX = centerX - totalWidth / 2
+
+  nodes.push({
+    id: clientId,
+    type: 'apiLensC4',
+    position: { x: centerX, y: 40 },
+    data: {
+      variant: 'person',
+      label: 'Client',
+      stereotype: 'Person',
+      description: 'Consumes API endpoints.',
+    },
+  })
+
+  containerServices.forEach((svc, i) => {
     const col = i % 3
     const row = Math.floor(i / 3)
     const nodeId = `c4l2-${svc.id}`
@@ -229,18 +215,47 @@ function buildC4L2(
     nodes.push({
       id: nodeId,
       type: 'apiLensC4',
-      position: { x: 80 + col * 280, y: 60 + row * 200 },
+      position: { x: startX + col * 280, y: 220 + row * 200 },
       data: {
         variant: isExternal ? 'external' : 'internal',
-        label: svc.name,
+        label: cleanText(svc.name),
         stereotype: svc.technology
           ? (isDb ? `Database: ${svc.technology}` : `Container: ${svc.technology}`)
           : isDb ? 'Database' : isExternal ? 'External System' : 'Container',
-        description: `${svc.endpoints.length} endpoint${svc.endpoints.length !== 1 ? 's' : ''}`,
+        description: withFallbackDescription(
+          cleanText(svc.name),
+          isExternal ? 'external' : 'internal',
+          `${svc.endpoints.length} endpoint${svc.endpoints.length !== 1 ? 's' : ''}`,
+        ),
       },
     })
   })
 
+  // Infer Client -> Container edges from endpoint exposure
+  containerServices.forEach((svc, idx) => {
+    const target = idMap[svc.id]
+    if (!target) return
+    const endpointSummary = primaryEndpointLabel(svc.endpoints)
+    const hasAuthLikeEndpoints = svc.endpoints.some((e) => /\/auth|\/login|\/token|\/otp|\/register/i.test(e.path))
+      || /auth/i.test(svc.name)
+    const label = hasAuthLikeEndpoints
+      ? (endpointSummary === 'Uses API' ? 'Authenticates via' : endpointSummary)
+      : endpointSummary
+    edges.push({
+      id: `l2-client-${svc.id}`,
+      source: clientId,
+      target,
+      sourceHandle: `source-bottom-${(idx % 5) + 1}`,
+      targetHandle: 'target-top',
+      label,
+      type: 'smoothstep',
+      style: { stroke: 'rgba(17,104,189,0.45)', strokeWidth: 1.5 },
+      labelStyle: { fontSize: 10, fill: '#64748B', fontFamily: 'Inter' },
+      markerEnd: { type: 'arrowclosed', width: 12, height: 12, color: 'rgba(17,104,189,0.5)' },
+    } as Edge)
+  })
+
+  // Preserve inferred inter-container relationships from analysis output
   connections.forEach(c => {
     const src = idMap[c.source]
     const tgt = idMap[c.target]
@@ -258,7 +273,15 @@ function buildC4L2(
     } as Edge)
   })
 
-  return { nodes, edges }
+  const seen = new Set<string>()
+  const dedupedEdges = edges.filter((e) => {
+    const key = `${e.source}-${e.target}-${e.label ?? ''}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
+  return { nodes, edges: dedupedEdges }
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -518,7 +541,7 @@ export function ApiLensShell({
         </div>
 
         {/* React Flow canvas */}
-        <div style={{ flex: 1 }}>
+        <div className="api-lens-c4-canvas" style={{ flex: 1 }}>
           <ReactFlow
             nodes={nodes}
             edges={edges}

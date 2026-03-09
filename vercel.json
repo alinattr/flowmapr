@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/reset-generations",
+      "schedule": "0 0 1 * *"
+    }
+  ]
+}

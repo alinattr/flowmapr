@@ -1,13 +1,19 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { EditableLabel } from '../EditableLabel'
+import { useTheme } from '@/lib/theme/ThemeProvider'
 
 export function FcDecisionNode({ data, id }: NodeProps) {
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
+
   return (
     <div style={{ position: 'relative', width: 140, height: 70, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <svg width="140" height="70" style={{ position: 'absolute', top: 0, left: 0 }}>
         <polygon
-          className="fc-decision-shape"
           points="70,4 136,35 70,66 4,35"
+          fill={isDark ? 'rgba(59,130,246,0.12)' : '#DBEAFE'}
+          stroke={isDark ? 'rgba(59,130,246,0.4)' : '#3B82F6'}
+          strokeWidth="1.5"
         />
       </svg>
       <Handle type="target" position={Position.Top} style={{ top: 4, background: '#3B82F6', zIndex: 1 }} />

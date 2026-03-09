@@ -57,11 +57,35 @@ const UML_EDGE_STYLES: Record<string, {
   },
 }
 
+function isPlaceholderText(value: unknown): boolean {
+  return typeof value === 'string' && /^\s*\[[^\]]+\]\s*$/.test(value)
+}
+
+function c4FallbackDescription(type: string, label: string, isExternal: boolean): string {
+  const clean = label.trim() || 'System'
+  if (type === 'c4Person') return `${clean} interacts with the system.`
+  if (isExternal || type === 'c4SystemExt') return `${clean} is an external system integration.`
+  return `${clean} handles core business capabilities for this system.`
+}
+
 export function parseFlowData(raw: {
   nodes?: RawNode[]
   edges?: RawEdge[]
 }): { nodes: Node[]; edges: Edge[] } {
-  const rawNodes = raw.nodes ?? []
+  const rawNodes = (raw.nodes ?? []).map((node) => {
+    if (!node.type.startsWith('c4')) return node
+    const data = { ...(node.data ?? {}) }
+    const label = String(data.label ?? '').trim()
+    const isExternal = data.isExternal === true || data.external === true || node.type === 'c4SystemExt'
+    const description = typeof data.description === 'string' ? data.description.trim() : ''
+    data.isExternal = isExternal
+    data.description = !description || isPlaceholderText(description)
+      ? c4FallbackDescription(node.type, label, isExternal)
+      : description
+    if (isPlaceholderText(data.technology)) data.technology = null
+    return { ...node, data }
+  })
+  const nodeTypeById = new Map(rawNodes.map((n) => [n.id, n.type]))
 
   const contentNodes = rawNodes.filter((n) => !CONTAINER_TYPES.has(n.type))
   const maxX = contentNodes.length > 0
@@ -105,9 +129,23 @@ export function parseFlowData(raw: {
     } as Node
   })
 
+  const c4OutgoingCounter = new Map<string, number>()
   const edges: Edge[] = (raw.edges ?? []).map((edge) => {
     const isUml = UML_EDGE_TYPES.has(edge.type ?? '')
     const umlStyle = isUml ? UML_EDGE_STYLES[edge.type!] : null
+    const sourceType = nodeTypeById.get(edge.source) ?? ''
+    const targetType = nodeTypeById.get(edge.target) ?? ''
+    const isBpmnEdge = sourceType.startsWith('bpmn') || targetType.startsWith('bpmn')
+    const isC4Edge = sourceType.startsWith('c4') || targetType.startsWith('c4')
+    const isGatewayOutgoing = sourceType === 'bpmnGateway'
+    const isYesNoLabel = typeof edge.label === 'string' && /^(yes|no)$/i.test(edge.label.trim())
+    let c4SourceHandle: string | undefined
+    if (sourceType.startsWith('c4')) {
+      const next = (c4OutgoingCounter.get(edge.source) ?? 0) + 1
+      c4OutgoingCounter.set(edge.source, next)
+      const slot = ((next - 1) % 5) + 1
+      c4SourceHandle = `source-bottom-${slot}`
+    }
 
     return {
       ...edge,
@@ -131,10 +169,17 @@ export function parseFlowData(raw: {
         fontSize: 11,
         fontFamily: 'Inter',
         fill: 'var(--color-text-secondary)',
+        ...(isBpmnEdge ? { transform: `translateY(${isGatewayOutgoing ? 24 : 14}px)` } : {}),
+        ...(isYesNoLabel ? { fontWeight: 600 } : {}),
       },
-      labelBgStyle: { fill: '#FFFFFF', fillOpacity: 0.9 },
+      labelBgStyle: isBpmnEdge
+        ? { fill: 'transparent', fillOpacity: 0 }
+        : { fill: '#FFFFFF', fillOpacity: 0.9 },
       labelBgPadding: [4, 2] as [number, number],
       labelBgBorderRadius: 2,
+      ...(isC4Edge && c4SourceHandle
+        ? { sourceHandle: c4SourceHandle, targetHandle: edge.targetHandle ?? 'target-top' }
+        : {}),
     } as Edge
   })
 

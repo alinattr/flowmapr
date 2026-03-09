@@ -46,6 +46,7 @@ import {
 import type { Node, Edge } from '@xyflow/react'
 import { generatePlantUML } from '@/lib/uml/plantuml'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { FeatureUpgradeModal } from '@/components/shared/FeatureUpgradeModal'
 
 interface DiagramTopBarProps {
   diagramId: string
@@ -107,6 +108,10 @@ export function DiagramTopBar({
   const [ghMarkdownCopied, setGhMarkdownCopied] = useState(false)
   // Notion / Confluence instruction state
   const [integrationView, setIntegrationView] = useState<'list' | 'github' | 'notion' | 'confluence'>('list')
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
+  const [upgradeFeature, setUpgradeFeature] = useState('')
+  const [upgradePlan, setUpgradePlan] = useState<'basic' | 'pro'>('basic')
+  const appBaseUrl = (process.env.NEXT_PUBLIC_APP_URL || 'https://flowmapr.com').replace(/\/$/, '')
 
   const initials = fullName
     ? fullName
@@ -269,6 +274,12 @@ export function DiagramTopBar({
     setGhMarkdownCopied(false)
   }
 
+  function openUpgradeModal(featureName: string, requiredPlan: 'basic' | 'pro') {
+    setUpgradeFeature(featureName)
+    setUpgradePlan(requiredPlan)
+    setUpgradeModalOpen(true)
+  }
+
   async function handleToggleShare() {
     setSharing(true)
     const supabase = createClient()
@@ -294,6 +305,27 @@ export function DiagramTopBar({
     setSharing(false)
   }
 
+  async function ensurePublicSharingEnabled() {
+    if (sharing || isPublic) return
+    setSharing(true)
+    const supabase = createClient()
+    const slug = diagramId.slice(0, 8)
+    const { error } = await supabase
+      .from('diagrams')
+      .update({ is_public: true, public_slug: slug })
+      .eq('id', diagramId)
+
+    if (error) {
+      toast.error('Failed to enable public sharing')
+      setSharing(false)
+      return
+    }
+
+    setIsPublic(true)
+    setPublicSlug(slug)
+    setSharing(false)
+  }
+
   function copyShareLink() {
     if (!publicSlug) return
     const url = `${window.location.origin}/share/${publicSlug}`
@@ -305,6 +337,7 @@ export function DiagramTopBar({
   const shareUrl = publicSlug
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/share/${publicSlug}`
     : ''
+  const canUsePublicSharing = userPlan === 'basic' || userPlan === 'pro'
 
   return (
     <>
@@ -418,15 +451,32 @@ export function DiagramTopBar({
             </Button>
           )}
 
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => setShareOpen(true)}
-          >
-            <Share2 className="h-3.5 w-3.5" strokeWidth={1.5} />
-            Share
-          </Button>
+          {canUsePublicSharing ? (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={async () => {
+                setShareOpen(true)
+                await ensurePublicSharingEnabled()
+              }}
+            >
+              <Share2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+              Share
+            </Button>
+          ) : (
+            <div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => openUpgradeModal('Public sharing', 'basic')}
+              >
+                <Share2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                Share
+              </Button>
+            </div>
+          )}
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -614,7 +664,7 @@ export function DiagramTopBar({
                     <p className="mb-2 text-xs text-[var(--color-text-secondary)]">
                       Copy and paste this code into your website or docs:
                     </p>
-                    <div
+                    <pre
                       style={{
                         background: 'rgba(255,255,255,0.03)',
                         border: '1px solid rgba(255,255,255,0.08)',
@@ -623,11 +673,14 @@ export function DiagramTopBar({
                         fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
                         fontSize: 11,
                         color: '#94A3B8',
-                        whiteSpace: 'pre',
-                        overflow: 'auto',
+                        whiteSpace: 'pre-wrap',
+                        overflowX: 'auto',
+                        wordBreak: 'break-all',
+                        maxWidth: '100%',
                         lineHeight: 1.6,
+                        margin: 0,
                       }}
-                    >{`<iframe\n  src="${typeof window !== 'undefined' ? window.location.origin : 'https://app.flowmapr.com'}/embed/${diagramId}"\n  width="800"\n  height="600"\n  frameborder="0"\n  allowfullscreen>\n</iframe>`}</div>
+                    >{`<iframe\n  src="${appBaseUrl}/embed/${diagramId}"\n  width="800"\n  height="600"\n  frameborder="0"\n  allowfullscreen>\n</iframe>`}</pre>
                   </div>
 
                   <DialogFooter>
@@ -636,7 +689,7 @@ export function DiagramTopBar({
                       size="sm"
                       className="gap-1.5"
                       onClick={() => {
-                        const embedCode = `<iframe\n  src="${window.location.origin}/embed/${diagramId}"\n  width="800"\n  height="600"\n  frameborder="0"\n  allowfullscreen>\n</iframe>`
+                        const embedCode = `<iframe\n  src="${appBaseUrl}/embed/${diagramId}"\n  width="800"\n  height="600"\n  frameborder="0"\n  allowfullscreen>\n</iframe>`
                         navigator.clipboard.writeText(embedCode)
                         setEmbedCopied(true)
                         setTimeout(() => setEmbedCopied(false), 2000)
@@ -746,13 +799,15 @@ export function DiagramTopBar({
                   <div style={{ fontSize: 12, color: '#71717A', fontFamily: 'Inter, sans-serif', marginBottom: 16, lineHeight: 1.6 }}>
                     Export directly to GitHub, Notion, and Confluence
                   </div>
-                  <a
-                    href="/#pricing"
-                    onClick={() => setExportOpen(false)}
-                    style={{ padding: '7px 16px', background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: 'white', borderRadius: 8, textDecoration: 'none', fontSize: 12, fontWeight: 600 }}
+                  <button
+                    onClick={() => {
+                      setExportOpen(false)
+                      openUpgradeModal('Export to GitHub/Notion/Confluence', 'pro')
+                    }}
+                    style={{ padding: '7px 16px', background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: 'white', borderRadius: 8, border: 'none', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}
                   >
                     Upgrade to Pro
-                  </a>
+                  </button>
                 </div>
               ) : integrationView === 'list' ? (
                 /* Integration list */
@@ -918,6 +973,12 @@ export function DiagramTopBar({
           )}
         </DialogContent>
       </Dialog>
+      <FeatureUpgradeModal
+        open={upgradeModalOpen}
+        onOpenChange={setUpgradeModalOpen}
+        featureName={upgradeFeature}
+        requiredPlan={upgradePlan}
+      />
     </>
   )
 }

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react'
 import { toast } from 'sonner'
-import { Lock, Copy, Check, RotateCcw } from 'lucide-react'
+import { Copy, Check, RotateCcw } from 'lucide-react'
 import { useTheme } from '@/lib/theme/ThemeProvider'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { AppSidebar } from '@/components/shared/AppSidebar'
@@ -88,8 +88,7 @@ export function ExplainImageShell({
   const [copied, setCopied] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  const isLocked = plan === 'free' || plan === 'free_trial'
-  const canAnalyze = !!file && !loading && !isLocked
+  const canAnalyze = !!file && !loading
 
   const acceptFile = useCallback((f: File) => {
     const allowed = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp']
@@ -143,10 +142,10 @@ export function ExplainImageShell({
         body: formData,
       })
 
-      if (res.status === 402) {
+      if (res.status === 403) {
         const data = await res.json()
-        if (data.code === 'PLAN_REQUIRED') {
-          toast.error('Explain Image requires Basic or Pro plan.')
+        if (data.error === 'feature_not_available') {
+          toast.error('Explain Diagram is not available on your current plan.')
         } else {
           toast.error("You've reached your generation limit for this month.")
         }
@@ -217,7 +216,7 @@ export function ExplainImageShell({
         generationsRemaining={generationsRemaining}
       />
       <div className="flex flex-1 overflow-hidden">
-        <AppSidebar plan={plan} />
+        <AppSidebar plan={plan} generationsRemaining={generationsRemaining} />
 
         {/* Main content */}
         <div className="flex flex-1 overflow-hidden">
@@ -260,26 +259,6 @@ export function ExplainImageShell({
               </div>
             </div>
 
-            {/* Plan gate */}
-            {isLocked && (
-              <div style={{
-                padding: '14px 16px', borderRadius: 10, marginBottom: 20,
-                background: T.planGateBg, border: `1px solid ${T.planGateBorder}`,
-                display: 'flex', alignItems: 'flex-start', gap: 10,
-              }}>
-                <Lock size={16} style={{ color: '#F59E0B', flexShrink: 0, marginTop: 1 }} />
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: T.planGateTitle, fontFamily: 'Inter, sans-serif' }}>
-                    Basic or Pro plan required
-                  </div>
-                  <div style={{ fontSize: 12, color: T.planGateDesc, fontFamily: 'Inter, sans-serif', marginTop: 2 }}>
-                    Explain Image consumes 1 generation credit per analysis.{' '}
-                    <a href="/settings" style={{ color: '#6366F1', textDecoration: 'underline' }}>Upgrade your plan</a>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* Upload zone */}
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 10, fontWeight: 600, color: T.labelColor, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8, fontFamily: 'Inter, sans-serif' }}>
@@ -291,7 +270,7 @@ export function ExplainImageShell({
                   onDragOver={e => { e.preventDefault(); setDragging(true) }}
                   onDragLeave={() => setDragging(false)}
                   onDrop={onDrop}
-                  onClick={() => !isLocked && fileInputRef.current?.click()}
+                  onClick={() => fileInputRef.current?.click()}
                   style={{
                     minHeight: 200,
                     borderRadius: 12,
@@ -300,7 +279,7 @@ export function ExplainImageShell({
                     display: 'flex', flexDirection: 'column',
                     alignItems: 'center', justifyContent: 'center',
                     gap: 8,
-                    cursor: isLocked ? 'not-allowed' : 'pointer',
+                    cursor: 'pointer',
                     transition: 'all 0.15s ease',
                     padding: '24px 16px',
                   }}
@@ -422,10 +401,7 @@ export function ExplainImageShell({
               </button>
 
               <div style={{ fontSize: 11, color: T.creditsColor, fontFamily: 'Inter, sans-serif', textAlign: 'center' }}>
-                {isLocked
-                  ? 'Upgrade required to use this feature'
-                  : `${generationsRemaining} generation${generationsRemaining !== 1 ? 's' : ''} remaining`
-                }
+                {`${generationsRemaining} generation${generationsRemaining !== 1 ? 's' : ''} remaining`}
               </div>
             </div>
           </div>

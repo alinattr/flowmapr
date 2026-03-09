@@ -43,7 +43,7 @@ const SECTIONS = [
   },
   {
     title: '10. Contact',
-    content: 'For questions about these terms, please contact us at legal@flowmapr.com.',
+    content: 'For questions about these terms, please contact us at support@flowmapr.com.',
   },
 ]
 

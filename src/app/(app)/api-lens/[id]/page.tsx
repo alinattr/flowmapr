@@ -42,7 +42,7 @@ export default async function ApiLensPage({ params }: PageProps) {
     .single()
 
   const generationsRemaining = sub ? sub.monthly_limit - sub.generations_used : 0
-  const userPlan = sub?.plan ?? 'free_trial'
+  const userPlan = sub?.plan ?? 'free'
 
   const flowData = (diagram.flow_data ?? {}) as Record<string, unknown>
   const services = Array.isArray(flowData.services) ? flowData.services : []

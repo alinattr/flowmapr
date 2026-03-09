@@ -1,9 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
-import { notFound } from 'next/navigation'
 import { EmbedViewer } from '@/components/diagram/EmbedViewer'
 import type { SequenceData } from '@/components/diagram/sequence/SequenceRenderer'
 import { parseFlowData } from '@/lib/diagram'
-import Link from 'next/link'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -45,15 +43,12 @@ export default async function EmbedPage({ params }: PageProps) {
           alignItems: 'center',
           justifyContent: 'center',
           background: '#09090B',
-          color: '#52525B',
+          color: '#A1A1AA',
           fontFamily: 'Inter, sans-serif',
           fontSize: 14,
-          flexDirection: 'column',
-          gap: 8,
         }}
       >
-        <span style={{ fontSize: 32 }}>—</span>
-        <span>Diagram not found or not public</span>
+        This diagram is not available.
       </div>
     )
   }
@@ -87,7 +82,7 @@ export default async function EmbedPage({ params }: PageProps) {
   }
 
   return (
-    <div style={{ width: '100%', height: '100vh', background: '#09090B', position: 'relative' }}>
+    <div style={{ width: '100%', height: '100vh', background: '#09090B' }}>
       <EmbedViewer
         title={diagram.title}
         diagramType={diagram.diagram_type}
@@ -95,31 +90,6 @@ export default async function EmbedPage({ params }: PageProps) {
         nodes={reactFlowNodes}
         edges={reactFlowEdges}
       />
-
-      <Link
-        href="https://flowmapr.com"
-        target="_blank"
-        style={{
-          position: 'fixed',
-          bottom: 12,
-          right: 12,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          padding: '4px 10px',
-          background: 'rgba(255,255,255,0.06)',
-          border: '1px solid rgba(255,255,255,0.1)',
-          borderRadius: 6,
-          textDecoration: 'none',
-          fontSize: 11,
-          color: 'rgba(255,255,255,0.4)',
-          fontFamily: 'Inter, sans-serif',
-          zIndex: 999,
-          backdropFilter: 'blur(8px)',
-        }}
-      >
-        Made with flowmapr
-      </Link>
     </div>
   )
 }

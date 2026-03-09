@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2 } from 'lucide-react'
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -29,6 +29,7 @@ const labelStyle: React.CSSProperties = {
 export function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -80,16 +81,39 @@ export function LoginForm() {
             Forgot password?
           </a>
         </div>
-        <input
-          id="password"
-          type="password"
-          placeholder="••••••••"
-          value={password}
-          onChange={e => setPassword(e.target.value)}
-          required
-          minLength={6}
-          style={inputStyle}
-        />
+        <div style={{ position: 'relative' }}>
+          <input
+            id="password"
+            type={showPassword ? 'text' : 'password'}
+            placeholder="••••••••"
+            value={password}
+            onChange={e => setPassword(e.target.value)}
+            required
+            minLength={6}
+            style={{ ...inputStyle, paddingRight: 40 }}
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
+            style={{
+              position: 'absolute',
+              right: 12,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              color: '#888',
+              padding: 0,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            aria-label={showPassword ? 'Hide password' : 'Show password'}
+          >
+            {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+          </button>
+        </div>
       </div>
 
       {error && (

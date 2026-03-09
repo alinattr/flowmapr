@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
-import { createAdminClient } from '@/lib/supabase/admin'
+import { checkGenerationLimit } from '@/lib/subscriptions/checkGenerationLimit'
+import { hasFeature } from '@/lib/subscriptions/hasFeature'
+import { recordGenerationUsage } from '@/lib/subscriptions/recordGenerationUsage'
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
@@ -44,30 +46,19 @@ export async function POST(req: NextRequest) {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  // Plan check — Basic and Pro only
-  const { data: sub } = await supabase
-    .from('subscriptions')
-    .select('plan, generations_used, monthly_limit')
-    .eq('user_id', user.id)
-    .single()
-
-  const plan = sub?.plan ?? 'free_trial'
-  if (plan === 'free' || plan === 'free_trial') {
+  const canUseExplain = await hasFeature(user.id, 'explain_diagram')
+  if (!canUseExplain) {
     return NextResponse.json(
-      { error: 'Explain Image requires Basic or Pro plan.', code: 'PLAN_REQUIRED' },
-      { status: 402 }
+      { error: 'feature_not_available', feature: 'explain_diagram' },
+      { status: 403 }
     )
   }
 
-  // Generation quota check
-  const admin = createAdminClient()
-  const { data: incremented } = await admin.rpc('increment_generation_counter', {
-    p_user_id: user.id,
-  })
-  if (!incremented) {
+  const usage = await checkGenerationLimit(user.id)
+  if (!usage.allowed) {
     return NextResponse.json(
-      { error: 'Generation limit reached.', code: 'LIMIT_EXHAUSTED' },
-      { status: 402 }
+      { error: 'generation_limit_reached', plan: usage.plan, limit: usage.limit },
+      { status: 403 }
     )
   }
 
@@ -137,6 +128,12 @@ export async function POST(req: NextRequest) {
     const explanation = response.choices[0]?.message?.content ?? ''
 
     console.log(`[explain-image] user=${user.id} tokens=${response.usage?.total_tokens} latency=${Date.now() - startTime}ms`)
+
+    await recordGenerationUsage({
+      userId: user.id,
+      diagramType: 'explain_diagram',
+      tokensUsed: response.usage?.total_tokens ?? null,
+    })
 
     return NextResponse.json({ explanation }, { status: 200 })
   } catch (err) {

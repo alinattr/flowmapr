@@ -9,6 +9,10 @@ interface NewArtifactModalProps {
   onClose: () => void
   /** Called when user picks "Generate diagram" — caller opens the diagram generation flow */
   onNewDiagram?: () => void
+  /** Prevent opening generate flow when user has no free generations left */
+  blockDiagramGeneration?: boolean
+  /** Called when diagram generation is blocked and upgrade prompt should open */
+  onBlockedDiagramGeneration?: () => void
 }
 
 const ARTIFACT_OPTIONS = [
@@ -69,7 +73,13 @@ const ARTIFACT_OPTIONS = [
   },
 ] as const
 
-export function NewArtifactModal({ open, onClose, onNewDiagram }: NewArtifactModalProps) {
+export function NewArtifactModal({
+  open,
+  onClose,
+  onNewDiagram,
+  blockDiagramGeneration = false,
+  onBlockedDiagramGeneration,
+}: NewArtifactModalProps) {
   const router = useRouter()
   const { theme } = useTheme()
   const isDark = theme === 'dark'
@@ -91,10 +101,16 @@ export function NewArtifactModal({ open, onClose, onNewDiagram }: NewArtifactMod
   if (!open) return null
 
   const handleOption = (opt: typeof ARTIFACT_OPTIONS[number]) => {
-    onClose()
     if (opt.id === 'diagram') {
+      if (blockDiagramGeneration) {
+        onClose()
+        onBlockedDiagramGeneration?.()
+        return
+      }
+      onClose()
       onNewDiagram?.()
     } else if ('href' in opt) {
+      onClose()
       router.push(opt.href)
     }
   }

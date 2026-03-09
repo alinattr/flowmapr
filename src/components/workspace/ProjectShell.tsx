@@ -18,6 +18,7 @@ import Link from 'next/link'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { AppSidebar } from '@/components/shared/AppSidebar'
 import { GenerateDialog } from '@/components/workspace/GenerateDialog'
+import { OnboardingModal } from '@/components/onboarding/OnboardingModal'
 import { WorkspaceToolbar, type SortOption, type ViewMode } from '@/components/workspace/WorkspaceToolbar'
 import { FileText, MoreHorizontal, Trash2, Sparkles, GitBranch, Pencil, Check, X, FolderInput } from 'lucide-react'
 import {
@@ -50,7 +51,7 @@ function diagramPath(d: { id: string; diagram_type: string }) {
   return `/diagram/${d.id}`
 }
 
-const TYPE_BADGE_STYLES: Record<string, { bg: string; color: string; label: string }> = {
+const TYPE_BADGE_DARK: Record<string, { bg: string; color: string; label: string }> = {
   bpmn:         { bg: 'rgba(99,102,241,0.15)',  color: '#818CF8', label: 'BPMN' },
   uml_sequence: { bg: 'rgba(34,197,94,0.15)',   color: '#4ADE80', label: 'UML Seq' },
   erd:          { bg: 'rgba(59,130,246,0.15)',  color: '#60A5FA', label: 'ERD' },
@@ -60,8 +61,19 @@ const TYPE_BADGE_STYLES: Record<string, { bg: string; color: string; label: stri
   api_lens:     { bg: 'rgba(6,182,212,0.15)',   color: '#67E8F9', label: 'API Lens' },
 }
 
-function getTypeStyle(type: string) {
-  return TYPE_BADGE_STYLES[type] ?? { bg: 'rgba(113,113,122,0.15)', color: '#71717A', label: type ?? 'Unknown' }
+const TYPE_BADGE_LIGHT: Record<string, { bg: string; color: string; label: string }> = {
+  bpmn:         { bg: '#EEF2FF', color: '#4F46E5', label: 'BPMN' },
+  uml_sequence: { bg: '#F0FDF4', color: '#16A34A', label: 'UML Seq' },
+  erd:          { bg: '#FFF7ED', color: '#C2410C', label: 'ERD' },
+  flowchart:    { bg: '#FFFBEB', color: '#B45309', label: 'Flowchart' },
+  c4_l1:        { bg: '#F0F9FF', color: '#0369A1', label: 'C4 (L1)' },
+  c4_l2:        { bg: '#F5F3FF', color: '#6D28D9', label: 'C4 (L2)' },
+  api_lens:     { bg: '#F0FDF4', color: '#16A34A', label: 'API Lens' },
+}
+
+function getTypeStyle(type: string, isDark: boolean) {
+  const map = isDark ? TYPE_BADGE_DARK : TYPE_BADGE_LIGHT
+  return map[type] ?? { bg: isDark ? 'rgba(113,113,122,0.15)' : '#F4F4F5', color: isDark ? '#71717A' : '#52525B', label: type ?? 'Unknown' }
 }
 
 const TYPE_COLORS: Record<string, string> = {
@@ -90,6 +102,7 @@ interface ProjectShellProps {
   plan: string
   project: ProjectType
   diagrams: DiagramSummary[]
+  needsOnboarding?: boolean
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -102,6 +115,7 @@ export function ProjectShell({
   plan,
   project: initialProject,
   diagrams: initialDiagrams,
+  needsOnboarding = false,
 }: ProjectShellProps) {
   const { theme } = useTheme()
   const isDark = theme === 'dark'
@@ -125,6 +139,13 @@ export function ProjectShell({
     if (typeof window !== 'undefined') return (localStorage.getItem('ws-view') as ViewMode) ?? 'grid'
     return 'grid'
   })
+  const [showOnboarding, setShowOnboarding] = useState(false)
+
+  useEffect(() => {
+    if (!needsOnboarding) return
+    const t = setTimeout(() => setShowOnboarding(true), 450)
+    return () => clearTimeout(t)
+  }, [needsOnboarding])
 
   // Load all projects for "Move to project" submenu
   useEffect(() => { getUserProjects().then(setAllProjects).catch(() => {}) }, [])
@@ -152,12 +173,12 @@ export function ProjectShell({
   }, [project.id, project.name, project.is_default, setActiveProject])
 
   const T = {
-    tabText:         isDark ? 'rgba(161,161,170,0.8)' : '#6B7280',
-    tabActiveText:   isDark ? '#F1F5F9'               : '#111827',
-    tabActiveBorder: '#6366F1',
-    listRowBg:       isDark ? 'rgba(255,255,255,0.02)' : '#FAFAFA',
-    listRowBorder:   isDark ? 'rgba(255,255,255,0.06)' : '#F3F4F6',
-    listRowHover:    isDark ? 'rgba(255,255,255,0.04)' : '#F3F4F6',
+    tabText:         isDark ? 'rgba(161,161,170,0.8)' : '#52525B',
+    tabActiveText:   isDark ? '#F1F5F9'               : '#0F0F13',
+    tabActiveBorder: isDark ? '#6366F1'               : '#5B5BD6',
+    listRowBg:       isDark ? 'rgba(255,255,255,0.02)' : '#FFFFFF',
+    listRowBorder:   isDark ? 'rgba(255,255,255,0.06)' : '#E4E4E7',
+    listRowHover:    isDark ? 'rgba(255,255,255,0.04)' : '#F0F0F2',
   }
 
   function formatDate(dateStr: string) {
@@ -557,10 +578,10 @@ export function ProjectShell({
             <p className="truncate text-[var(--color-text-primary)]" style={{ fontSize: 14, fontWeight: 600 }}>{d.title}</p>
           )}
           <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-            {(() => { const s = getTypeStyle(d.diagram_type); return (
+            {(() => { const s = getTypeStyle(d.diagram_type, isDark); return (
               <span style={{ padding: '2px 7px', borderRadius: 4, fontSize: 10, fontWeight: 600, fontFamily: 'Inter, sans-serif', background: s.bg, color: s.color }}>{s.label}</span>
             )})()}
-            <span style={{ fontSize: 12, color: '#6B7280' }}>{formatDate(d.updated_at)}</span>
+            <span style={{ fontSize: 12, color: isDark ? '#52525B' : '#A1A1AA' }}>{formatDate(d.updated_at)}</span>
           </div>
         </div>
         <DropdownMenu>
@@ -619,8 +640,8 @@ export function ProjectShell({
             <p className="truncate text-[var(--color-text-primary)]" style={{ fontSize: 14, fontWeight: 600 }}>{a.title}</p>
           )}
           <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ padding: '2px 7px', borderRadius: 4, fontSize: 10, fontWeight: 600, fontFamily: 'Inter, sans-serif', background: 'rgba(20,184,166,0.15)', color: '#0D9488' }}>Explain</span>
-            <span style={{ fontSize: 12, color: '#6B7280' }}>{formatDate(a.updated_at)}</span>
+            <span style={{ padding: '2px 7px', borderRadius: 4, fontSize: 10, fontWeight: 600, fontFamily: 'Inter, sans-serif', background: isDark ? 'rgba(20,184,166,0.15)' : 'rgba(13,148,136,0.1)', color: isDark ? '#2DD4BF' : '#0D9488' }}>Explain</span>
+            <span style={{ fontSize: 12, color: isDark ? '#52525B' : '#A1A1AA' }}>{formatDate(a.updated_at)}</span>
           </div>
         </div>
         <DropdownMenu>
@@ -679,8 +700,8 @@ export function ProjectShell({
             <p className="truncate text-[var(--color-text-primary)]" style={{ fontSize: 14, fontWeight: 600 }}>{a.title}</p>
           )}
           <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span style={{ padding: '2px 7px', borderRadius: 4, fontSize: 10, fontWeight: 600, fontFamily: 'Inter, sans-serif', background: 'rgba(99,102,241,0.15)', color: '#A5B4FC' }}>Code Lens</span>
-            <span style={{ fontSize: 12, color: '#6B7280' }}>{formatDate(a.updated_at)}</span>
+            <span style={{ padding: '2px 7px', borderRadius: 4, fontSize: 10, fontWeight: 600, fontFamily: 'Inter, sans-serif', background: isDark ? 'rgba(99,102,241,0.15)' : 'rgba(91,91,214,0.1)', color: isDark ? '#A5B4FC' : '#5B5BD6' }}>Code Lens</span>
+            <span style={{ fontSize: 12, color: isDark ? '#52525B' : '#A1A1AA' }}>{formatDate(a.updated_at)}</span>
           </div>
         </div>
         <DropdownMenu>
@@ -793,7 +814,11 @@ export function ProjectShell({
     <div className="flex h-screen flex-col bg-[var(--color-bg)]">
       <AppNavbar email={email} fullName={fullName} generationsRemaining={generationsRemaining} />
       <div className="flex flex-1 overflow-hidden">
-        <AppSidebar plan={plan} onNewDiagram={() => setGenerateOpen(true)} />
+        <AppSidebar
+          plan={plan}
+          generationsRemaining={generationsRemaining}
+          onNewDiagram={() => setGenerateOpen(true)}
+        />
 
         <main className="flex flex-1 flex-col overflow-auto">
           <div className="p-6">
@@ -816,7 +841,7 @@ export function ProjectShell({
                       style={{ fontSize: 22, fontWeight: 700, fontFamily: 'Inter, sans-serif', color: 'var(--color-text-primary)', background: 'transparent', border: 'none', borderBottom: '2px solid #6366F1', outline: 'none', padding: '0 2px', minWidth: 120 }}
                     />
                     <button onClick={handleRenameProject} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#22C55E' }}><Check size={16} /></button>
-                    <button onClick={() => { setIsRenamingProject(false); setRenameValue(project.name) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: isDark ? '#52525B' : '#9CA3AF' }}><X size={16} /></button>
+                    <button onClick={() => { setIsRenamingProject(false); setRenameValue(project.name) }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: isDark ? '#52525B' : '#A1A1AA' }}><X size={16} /></button>
                   </div>
                 ) : (
                   <h1 className="text-xl font-bold text-[var(--color-text-primary)] cursor-pointer" onClick={() => setIsRenamingProject(true)} title="Click to rename">
@@ -835,7 +860,7 @@ export function ProjectShell({
             </div>
 
             {/* ── Tab bar (all 5 tabs) ── */}
-            <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : '#F3F4F6'}` }}>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.07)' : '#E4E4E7'}` }}>
               {TABS.map(tab => {
                 const isActive = activeTab === tab.id
                 return (
@@ -891,7 +916,7 @@ export function ProjectShell({
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 {filtered.map(d => {
-                  const badge = getTypeStyle(d.diagram_type)
+                  const badge = getTypeStyle(d.diagram_type, isDark)
                   const dotColor = TYPE_COLORS[d.diagram_type] ?? '#71717A'
                   return (
                     <div key={d.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 14px', borderRadius: 8, border: `1px solid ${T.listRowBorder}`, background: T.listRowBg, transition: 'background 0.15s' }}
@@ -943,6 +968,13 @@ export function ProjectShell({
       </div>
 
       <GenerateDialog open={generateOpen} onOpenChange={setGenerateOpen} />
+
+      {showOnboarding && (
+        <OnboardingModal
+          onComplete={() => setShowOnboarding(false)}
+          userName={fullName ?? email}
+        />
+      )}
     </div>
   )
 }

@@ -5,8 +5,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { generatePreviewFromFlowData } from '@/lib/diagram/generatePreviewSvg'
 import { fixBpmnLayout } from '@/lib/diagram/bpmn/fixBpmnLayout'
 import { generateC4L1FromServices, generateC4L2FromServices } from '@/lib/api-lens/generateC4FromApiLens'
-import { checkAndDecrementGeneration } from '@/lib/generation-guard'
 import { validateRequestBody, sanitizePrompt } from '@/lib/input-validator'
+import { checkGenerationLimit } from '@/lib/subscriptions/checkGenerationLimit'
+import { hasFeature } from '@/lib/subscriptions/hasFeature'
+import { recordGenerationUsage } from '@/lib/subscriptions/recordGenerationUsage'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Prompt injection guard — prepended to every system prompt.
@@ -263,6 +265,11 @@ EDGE RULES:
 - Label every edge with the interaction description ("Uses", "Sends emails via", "Processes payments through")
 - Use verb phrases that explain the relationship
 
+DESCRIPTION RULES (REQUIRED):
+- Every system/person node MUST include a non-empty one-sentence data.description.
+- Never output placeholders in description or technology fields (e.g. "[Payment Processing System]", "[System Name]", "[TBD]").
+- If unsure, write a concise functional description of what the node does.
+
 OUTPUT FORMAT — strictly:
 {
   "type": "c4_l1",
@@ -297,6 +304,11 @@ LAYOUT RULES:
 EDGE RULES:
 - Label every edge with the protocol or purpose ("Makes API calls [HTTPS]", "Reads/writes [SQL]", "Publishes events [AMQP]")
 - Include technology in brackets when relevant
+
+DESCRIPTION RULES (REQUIRED):
+- Every container/system/person node MUST include a non-empty one-sentence data.description.
+- Never output placeholders in description or technology fields (e.g. "[Container Name]", "[System Name]", "[TBD]").
+- If unsure, write a concise functional description of the container's responsibility.
 
 OUTPUT FORMAT — strictly:
 {
@@ -536,6 +548,35 @@ function cleanSequenceTitle(title: string): string {
   return title.replace(/^sd\s+/i, '').trim()
 }
 
+function isPlaceholderText(value: unknown): boolean {
+  return typeof value === 'string' && /^\s*\[[^\]]+\]\s*$/.test(value)
+}
+
+function normalizeC4Nodes(rawNodes: unknown[]): unknown[] {
+  return rawNodes.map((node) => {
+    if (!node || typeof node !== 'object') return node
+    const n = node as { type?: string; data?: Record<string, unknown> }
+    if (!n.type?.startsWith('c4')) return node
+
+    const data = { ...(n.data ?? {}) }
+    const label = String(data.label ?? '').trim() || 'System'
+    const isExternal = n.type === 'c4SystemExt' || data.isExternal === true || data.external === true
+    const description = typeof data.description === 'string' ? data.description.trim() : ''
+
+    data.isExternal = isExternal
+    data.description = !description || isPlaceholderText(description)
+      ? (n.type === 'c4Person'
+        ? `${label} interacts with the system.`
+        : isExternal
+          ? `${label} is an external system integration.`
+          : `${label} handles core business capabilities for this system.`)
+      : description
+    if (isPlaceholderText(data.technology)) data.technology = null
+
+    return { ...(node as Record<string, unknown>), data }
+  })
+}
+
 function getBasePrompt(type: string): string {
   if (type === 'bpmn') return BPMN_PROMPT
   if (type === 'uml_sequence') return SEQUENCE_PROMPT
@@ -591,40 +632,33 @@ export async function POST(request: Request) {
       ? ((body as Record<string, unknown>).projectId as string)
       : null
 
-  // ── 2. Fast pre-check against subscriptions (existing mechanism) ─────────
-  const { data: sub } = await supabase
-    .from('subscriptions')
-    .select('generations_used, monthly_limit')
-    .eq('user_id', user.id)
-    .single()
-
-  if (!sub || sub.generations_used >= sub.monthly_limit) {
-    return NextResponse.json({ error: 'quota_exceeded' }, { status: 402 })
+  // ── 2. Feature gates ──────────────────────────────────────────────────────
+  if (diagramType === 'api_lens') {
+    const allowed = await hasFeature(user.id, 'api_lens')
+    if (!allowed) {
+      return NextResponse.json({ error: 'feature_not_available', feature: 'api_lens' }, { status: 403 })
+    }
+  }
+  if (existingDiagramId) {
+    const allowed = await hasFeature(user.id, 'update_diagram_ai')
+    if (!allowed) {
+      return NextResponse.json({ error: 'feature_not_available', feature: 'update_diagram_ai' }, { status: 403 })
+    }
   }
 
-  // ── 3. Atomic decrement via generation_counters (tamper-proof) ───────────
-  //    Falls through gracefully if the migration hasn't been applied yet.
-  const guard = await checkAndDecrementGeneration(user.id)
-  if (!guard.allowed) {
-    if (guard.reason === 'limit_exhausted' || guard.reason === 'counter_not_found') {
-      return NextResponse.json(
-        {
-          error: 'Generation limit reached. Please upgrade your plan to continue.',
-          code: 'LIMIT_EXHAUSTED',
-        },
-        { status: 402 }
-      )
-    }
-    // db_error — service temporarily unavailable
+  // ── 3. Generation limit check ─────────────────────────────────────────────
+  const usage = await checkGenerationLimit(user.id)
+  if (!usage.allowed) {
     return NextResponse.json(
-      { error: 'Service temporarily unavailable. Please try again.' },
-      { status: 503 }
+      { error: 'generation_limit_reached', plan: usage.plan, limit: usage.limit },
+      { status: 403 }
     )
   }
 
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 
   let flowData: Record<string, unknown>
+  let tokensUsed: number | null = null
 
   try {
     const completion = await openai.chat.completions.create({
@@ -645,6 +679,7 @@ export async function POST(request: Request) {
     })
 
     const text = completion.choices[0]?.message?.content
+    tokensUsed = completion.usage?.total_tokens ?? null
     if (!text) {
       throw new Error('No content in OpenAI response')
     }
@@ -652,6 +687,8 @@ export async function POST(request: Request) {
     const parsed = JSON.parse(text)
     if (diagramType === 'api_lens') {
       flowData = { services: parsed.services ?? [], connections: parsed.connections ?? [] }
+    } else if (diagramType === 'c4_l1' || diagramType === 'c4_l2') {
+      flowData = { nodes: normalizeC4Nodes(parsed.nodes ?? []), edges: parsed.edges ?? [] }
     } else if (diagramType === 'uml_sequence') {
       flowData = {
         title: cleanSequenceTitle(parsed.title ?? ''),
@@ -671,6 +708,9 @@ export async function POST(request: Request) {
       (err as { code?: string })?.code === 'ECONNRESET'
     const isOverloaded = (err as { status?: number })?.status === 503
     const isRateLimit = (err as { status?: number })?.status === 429
+    const isUnsupportedRegion =
+      (err as { status?: number; code?: string })?.status === 403 &&
+      (err as { code?: string })?.code === 'unsupported_country_region_territory'
     const isInsufficientQuota =
       (err as { status?: number; code?: string })?.status === 429 &&
       (err as { code?: string })?.code === 'insufficient_quota'
@@ -679,6 +719,8 @@ export async function POST(request: Request) {
 
     const errorCode = isTimeout
       ? 'OPENAI_TIMEOUT'
+      : isUnsupportedRegion
+        ? 'OPENAI_REGION_UNSUPPORTED'
       : isInsufficientQuota
         ? 'OPENAI_QUOTA_EXCEEDED'
         : isRateLimit
@@ -694,6 +736,12 @@ export async function POST(request: Request) {
     if (isInsufficientQuota) {
       return NextResponse.json(
         { error: 'Service temporarily unavailable. Please try again later.' },
+        { status: 503 }
+      )
+    }
+    if (isUnsupportedRegion) {
+      return NextResponse.json(
+        { error: 'AI service is unavailable for this server region. Please contact support or try again later.' },
         { status: 503 }
       )
     }
@@ -720,16 +768,6 @@ export async function POST(request: Request) {
       { error: 'Failed to generate diagram. Please try again.' },
       { status: 500 }
     )
-  }
-
-  const admin = createAdminClient()
-  const { data: incremented } = await admin.rpc(
-    'increment_generation_counter',
-    { p_user_id: user.id }
-  )
-
-  if (!incremented) {
-    return NextResponse.json({ error: 'quota_exceeded' }, { status: 402 })
   }
 
   const preview_svg = generatePreviewFromFlowData(diagramType, flowData)
@@ -764,13 +802,6 @@ export async function POST(request: Request) {
       label: `Regenerated · ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
     })
 
-    await supabase.from('generation_log').insert({
-      user_id: user.id,
-      diagram_id: existingDiagramId,
-      prompt,
-      diagram_type: diagramType,
-      success: true,
-    })
   } else {
     // ── New diagram: insert as before ────────────────────────────────────────
     // Resolve project_id: use the one from the request, or fall back to user's default project.
@@ -804,14 +835,6 @@ export async function POST(request: Request) {
     }
 
     savedDiagramId = diagram.id
-
-    await supabase.from('generation_log').insert({
-      user_id: user.id,
-      diagram_id: diagram.id,
-      prompt,
-      diagram_type: diagramType,
-      success: true,
-    })
 
     // Save initial version snapshot so History panel has an entry from the start
     await supabase.from('diagram_versions').insert({
@@ -869,6 +892,13 @@ export async function POST(request: Request) {
       })()
     }
   }
+
+  await recordGenerationUsage({
+    userId: user.id,
+    diagramId: savedDiagramId,
+    diagramType,
+    tokensUsed,
+  })
 
   return NextResponse.json({ diagramId: savedDiagramId, flowData })
 }

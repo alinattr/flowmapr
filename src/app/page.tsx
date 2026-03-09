@@ -20,7 +20,7 @@ const plans = [
     desc: 'Try Flowmapr with no commitment',
     highlight: false,
     features: [
-      'Generate up to 5 diagrams',
+      'Generate up to 3 diagrams',
       'All 6 diagram types',
       'Export PNG / PDF',
       'Explain Diagram (AI description)',
@@ -57,6 +57,7 @@ const plans = [
     features: [
       'Generate up to 500 diagrams',
       'API Lens',
+      'Code Lens',
       'Export PNG / PDF',
       'Explain Diagram (AI description)',
       'Update Diagram with AI',
@@ -90,6 +91,10 @@ const faqItems = [
   {
     q: 'What is API Lens?',
     a: 'API Lens takes an OpenAPI spec, Swagger file, or description of API endpoints and turns it into interactive documentation with an architecture diagram showing how services connect.',
+  },
+  {
+    q: 'What is Code Lens?',
+    a: 'Code Lens takes your code — TypeScript, JavaScript, Python, SQL, or Go — and turns it into clear documentation and diagrams. It explains what the code does, why it exists, key business rules, inputs and outputs, edge cases, and dependencies. You can get documentation only, or documentation paired with a visual flowchart of the code logic.',
   },
 ]
 
@@ -344,10 +349,7 @@ export default function LandingPage() {
           <div style={{ textAlign: 'center', marginBottom: 12 }}>
             {sectionTitle('Simple, transparent pricing')}
           </div>
-          <p style={{ textAlign: 'center', color: '#71717A', fontFamily: 'Inter, sans-serif', fontSize: 14, marginBottom: 48 }}>
-            Annual billing available — save 2 months free.
-          </p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginTop: 48 }}>
             {plans.map(plan => (
               <div key={plan.name} style={{
                 padding: 28, borderRadius: 14, position: 'relative',
