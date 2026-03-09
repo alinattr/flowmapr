@@ -143,6 +143,8 @@ QUALITY CHECKLIST:
 
 Generate a flowchart for the following process description.`
 
+const MAX_PROMPT_LENGTH = 4000
+
 // Strip PlantUML "sd " prefix that the model sometimes outputs even when instructed not to.
 function cleanSequenceTitle(title: string): string {
   return title.replace(/^sd\s+/i, '').trim()
@@ -180,11 +182,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 })
   }
 
-  const code = typeof body.code === 'string' ? body.code.slice(0, 4000) : ''
+  const rawCode = body.code
   const language = typeof body.language === 'string' ? body.language : 'auto'
   const includeDiagram = body.includeDiagram !== false
 
-  if (!code || code.trim().length < 10) {
+  if (typeof rawCode !== 'string') {
+    return NextResponse.json({ error: 'invalid_prompt' }, { status: 400 })
+  }
+  if (rawCode.trim().length === 0) {
+    return NextResponse.json({ error: 'empty_prompt' }, { status: 400 })
+  }
+  if (rawCode.length > MAX_PROMPT_LENGTH) {
+    return NextResponse.json(
+      { error: 'prompt_too_long', max: MAX_PROMPT_LENGTH, received: rawCode.length },
+      { status: 400 }
+    )
+  }
+
+  const code = rawCode
+  if (code.trim().length < 10) {
     return NextResponse.json({ error: 'Code is too short.' }, { status: 400 })
   }
 

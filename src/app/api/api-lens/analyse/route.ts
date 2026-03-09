@@ -6,6 +6,8 @@ import { checkGenerationLimit } from '@/lib/subscriptions/checkGenerationLimit'
 import { hasFeature } from '@/lib/subscriptions/hasFeature'
 import { recordGenerationUsage } from '@/lib/subscriptions/recordGenerationUsage'
 
+const MAX_PROMPT_LENGTH = 4000
+
 const SYSTEM_PROMPT = `You are an API documentation and architecture expert.
 Given an OpenAPI spec, Swagger file, or plain-text description of API endpoints, produce:
 1. A structured list of endpoints with method, path, summary, description, parameters, and responses
@@ -70,9 +72,23 @@ export async function POST(request: Request) {
     )
   }
 
-  const body = await request.json() as { spec?: string; prompt?: string }
-  const input = body.spec ?? body.prompt ?? ''
-  if (!input.trim()) return NextResponse.json({ error: 'No input provided' }, { status: 400 })
+  const body = await request.json() as { spec?: unknown; prompt?: unknown }
+  const rawInput = body.spec ?? body.prompt
+
+  if (typeof rawInput !== 'string') {
+    return NextResponse.json({ error: 'invalid_prompt' }, { status: 400 })
+  }
+  if (rawInput.trim().length === 0) {
+    return NextResponse.json({ error: 'empty_prompt' }, { status: 400 })
+  }
+  if (rawInput.length > MAX_PROMPT_LENGTH) {
+    return NextResponse.json(
+      { error: 'prompt_too_long', max: MAX_PROMPT_LENGTH, received: rawInput.length },
+      { status: 400 }
+    )
+  }
+
+  const input = rawInput
 
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 

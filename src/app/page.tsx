@@ -140,7 +140,7 @@ export default function LandingPage() {
             </span>
           </h1>
           <p style={{ fontSize: 18, color: '#94A3B8', fontFamily: 'Inter, sans-serif', lineHeight: 1.6, marginBottom: 40, maxWidth: 520, margin: '0 auto 40px' }}>
-            Generate professional BPMN, UML Sequence, ERD, Flowchart, C4 and API docs from plain text.
+            AI-powered BPMN, UML, C4, ERD and Flowchart generator — from plain text, in seconds.
             No code. No Visio. No moving boxes for 40 minutes.
           </p>
           <div style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap' }}>
@@ -187,7 +187,7 @@ export default function LandingPage() {
       <section id="features" style={{ padding: '80px 0', position: 'relative', zIndex: 1 }}>
         <div style={{ maxWidth: 1000, margin: '0 auto', padding: '0 24px' }}>
           <div style={{ textAlign: 'center', marginBottom: 48 }}>
-            {sectionTitle('Every diagram type you need')}
+            {sectionTitle('Every diagram type you need — BPMN, UML, C4, ERD and more')}
             <p style={{ marginTop: 12, color: '#71717A', fontFamily: 'Inter, sans-serif', fontSize: 15 }}>
               From business processes to API documentation — all in one tool.
             </p>
@@ -451,6 +451,35 @@ export default function LandingPage() {
 
       <BackToTop />
       <CookieBanner />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'SoftwareApplication',
+            name: 'Flowmapr',
+            applicationCategory: 'BusinessApplication',
+            operatingSystem: 'Web',
+            description: 'AI-powered diagram generator for BPMN, UML Sequence, ERD, Flowchart, C4 and API documentation.',
+            url: 'https://app.flowmapr.com',
+            offers: [
+              { '@type': 'Offer', name: 'Free', price: '0', priceCurrency: 'USD' },
+              { '@type': 'Offer', name: 'Basic', price: '20', priceCurrency: 'USD', billingIncrement: 'month' },
+              { '@type': 'Offer', name: 'Pro', price: '50', priceCurrency: 'USD', billingIncrement: 'month' },
+            ],
+            featureList: [
+              'BPMN 2.0 diagram generation',
+              'UML Sequence diagram generation',
+              'C4 architecture diagrams',
+              'ERD generation',
+              'API Lens from OpenAPI specs',
+              'Code Lens from code snippets',
+              'Export PNG and PDF',
+              'Public sharing',
+            ],
+          }),
+        }}
+      />
     </div>
   )
 }

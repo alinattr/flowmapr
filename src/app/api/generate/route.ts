@@ -543,6 +543,8 @@ OUTPUT FORMAT:
 
 Now generate an ERD for the following database description.`
 
+const MAX_PROMPT_LENGTH = 4000
+
 // Strip PlantUML "sd " prefix that the model sometimes outputs even when instructed not to.
 // e.g. "sd Online Banking Payment" → "Online Banking Payment"
 function cleanSequenceTitle(title: string): string {
@@ -620,7 +622,22 @@ export async function POST(request: Request) {
   }
 
   const { diagramType } = body as { diagramType: string }
-  const prompt = sanitizePrompt((body as { prompt: unknown }).prompt)
+  const rawPrompt = (body as { prompt?: unknown }).prompt
+
+  if (typeof rawPrompt !== 'string') {
+    return NextResponse.json({ error: 'invalid_prompt' }, { status: 400 })
+  }
+  if (rawPrompt.trim().length === 0) {
+    return NextResponse.json({ error: 'empty_prompt' }, { status: 400 })
+  }
+  if (rawPrompt.length > MAX_PROMPT_LENGTH) {
+    return NextResponse.json(
+      { error: 'prompt_too_long', max: MAX_PROMPT_LENGTH, received: rawPrompt.length },
+      { status: 400 }
+    )
+  }
+
+  const prompt = sanitizePrompt(rawPrompt)
   // Optional: when set, update this diagram in-place instead of creating a new one.
   // Used by the editor's Regenerate button so version history stays on the same diagram.
   const existingDiagramId =

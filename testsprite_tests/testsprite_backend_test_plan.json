@@ -1,0 +1,52 @@
+[
+  {
+    "id": "TC001",
+    "title": "post api generate diagram generation with valid prompt",
+    "description": "Test the POST /api/generate endpoint with a valid diagramType and prompt to ensure it generates a diagram and returns 200 with diagramId and flowData."
+  },
+  {
+    "id": "TC002",
+    "title": "post api generate unauthorized access",
+    "description": "Test the POST /api/generate endpoint without Authorization header to verify it returns 401 Unauthorized."
+  },
+  {
+    "id": "TC003",
+    "title": "post api generate generation limit enforcement",
+    "description": "Test the POST /api/generate endpoint with a user who exceeded monthly quota to verify it returns 403 Feature locked or generation limit reached."
+  },
+  {
+    "id": "TC004",
+    "title": "post api code lens analysis with valid code and diagram",
+    "description": "Test the POST /api/code-lens endpoint with valid code, language, and includeDiagram true to verify it returns 200 with documentation, diagram, and savedDiagramId."
+  },
+  {
+    "id": "TC005",
+    "title": "post api code lens analysis invalid input",
+    "description": "Test the POST /api/code-lens endpoint with empty code to verify it returns 400 Invalid input."
+  },
+  {
+    "id": "TC006",
+    "title": "post api api lens analyse with valid spec",
+    "description": "Test the POST /api/api-lens/analyse endpoint with valid OpenAPI spec to verify it returns 200 with services and connections."
+  },
+  {
+    "id": "TC007",
+    "title": "post api subscriptions checkout with valid plan",
+    "description": "Test the POST /api/subscriptions/checkout endpoint with valid plan and userId to verify it returns 200 with checkoutUrl."
+  },
+  {
+    "id": "TC008",
+    "title": "post api subscriptions cancel with active subscription",
+    "description": "Test the POST /api/subscriptions/cancel endpoint with an active paid subscription to verify it returns 200 with success true, periodEnd, and plan."
+  },
+  {
+    "id": "TC009",
+    "title": "post api subscriptions billing portal with valid subscription",
+    "description": "Test the POST /api/subscriptions/billing-portal endpoint with a user having a paid subscription to verify it returns 200 with portal url."
+  },
+  {
+    "id": "TC010",
+    "title": "post api webhooks polar with valid signature and subscription uncanceled event",
+    "description": "Test the POST /api/webhooks/polar endpoint with valid webhook_signature header and subscription.uncanceled event to verify it updates subscription status and returns 200 ok true."
+  }
+]

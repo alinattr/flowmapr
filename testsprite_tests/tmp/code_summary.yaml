@@ -1,0 +1,169 @@
+version: "2"
+type: backend
+tech_stack:
+  - TypeScript
+  - Next.js App Router (serverless API routes)
+  - Supabase (Postgres + Auth + RLS)
+  - OpenAI + Polar.sh SDK
+features:
+  - name: Diagram Generation API
+    description: Generates diagram JSON from user prompts and persists diagrams with version snapshots.
+    files:
+      - src/app/api/generate/route.ts
+      - src/lib/diagram/generatePreviewSvg.ts
+      - src/lib/subscriptions/checkGenerationLimit.ts
+      - src/lib/subscriptions/recordGenerationUsage.ts
+    endpoints:
+      - method: POST
+        path: /api/generate
+        description: Generate or regenerate a diagram from prompt and diagram type.
+        auth_required: true
+        request_schema:
+          body:
+            diagramType: string
+            prompt: string
+            existingDiagramId: string?
+            projectId: string?
+        response_schema:
+          "200": "{ diagramId: string, flowData: object }"
+          "400": Validation error
+          "401": Unauthorized
+          "403": Feature locked or generation limit reached
+          "429": Rate limited
+          "500": Generation/save failure
+    depends_on:
+      - Supabase Auth
+      - Subscriptions
+      - OpenAI
+
+  - name: Code Lens Analysis API
+    description: Converts source code into business-friendly documentation and optional flow diagram.
+    files:
+      - src/app/api/code-lens/route.ts
+      - src/lib/subscriptions/hasFeature.ts
+      - src/lib/subscriptions/checkGenerationLimit.ts
+      - src/lib/subscriptions/recordGenerationUsage.ts
+    endpoints:
+      - method: POST
+        path: /api/code-lens
+        description: Analyze uploaded code text and optionally generate a diagram.
+        auth_required: true
+        request_schema:
+          body:
+            code: string
+            language: string?
+            includeDiagram: boolean?
+        response_schema:
+          "200": "{ documentation: object, diagram?: object, savedDiagramId?: string }"
+          "400": Invalid input
+          "401": Unauthorized
+          "403": Feature locked or generation limit reached
+          "500": Analysis failure
+    depends_on:
+      - Supabase Auth
+      - Subscriptions
+      - OpenAI
+
+  - name: API Lens Analysis API
+    description: Analyzes API specs into service topology and endpoint metadata.
+    files:
+      - src/app/api/api-lens/analyse/route.ts
+      - src/lib/subscriptions/hasFeature.ts
+      - src/lib/subscriptions/checkGenerationLimit.ts
+    endpoints:
+      - method: POST
+        path: /api/api-lens/analyse
+        description: Parse and summarize OpenAPI/spec text into structured architecture JSON.
+        auth_required: true
+        request_schema:
+          body:
+            spec: string?
+            prompt: string?
+        response_schema:
+          "200": "{ services: object[], connections: object[] }"
+          "400": Missing spec/prompt
+          "401": Unauthorized
+          "403": Feature locked or generation limit reached
+          "500": Analysis failure
+    depends_on:
+      - Supabase Auth
+      - Subscriptions
+      - OpenAI
+
+  - name: Subscription Billing APIs
+    description: Starts checkout, cancellation, and portal flows for paid subscriptions.
+    files:
+      - src/app/api/subscriptions/checkout/route.ts
+      - src/app/api/subscriptions/cancel/route.ts
+      - src/app/api/subscriptions/billing-portal/route.ts
+      - src/lib/polar/client.ts
+    endpoints:
+      - method: POST
+        path: /api/subscriptions/checkout
+        description: Create Polar checkout URL for selected plan.
+        auth_required: true
+        request_schema:
+          body:
+            plan: basic|pro
+            userId: string
+        response_schema:
+          "200": "{ checkoutUrl: string }"
+          "400": Invalid plan/user
+          "401": Unauthorized
+          "500": Provider or config failure
+      - method: POST
+        path: /api/subscriptions/cancel
+        description: Set cancel-at-period-end in Polar and mark local status canceled.
+        auth_required: true
+        request_schema:
+          body: "{}"
+        response_schema:
+          "200": "{ success: true, periodEnd: string|null, plan: string }"
+          "400": No paid subscription / missing ids
+          "401": Unauthorized
+          "500": Local update failure
+          "502": Polar provider failure
+      - method: POST
+        path: /api/subscriptions/billing-portal
+        description: Create Polar customer portal session URL.
+        auth_required: true
+        request_schema:
+          body: "{}"
+        response_schema:
+          "200": "{ url: string }"
+          "400": Missing paid subscription/customer id
+          "401": Unauthorized
+          "500": Local lookup failure
+          "502": Polar provider failure
+    depends_on:
+      - Supabase Auth
+      - Polar SDK
+
+  - name: Polar Webhook Handler
+    description: Verifies Polar webhook signatures and synchronizes subscription state in database.
+    files:
+      - src/app/api/webhooks/polar/route.ts
+      - src/lib/subscriptions/plans.ts
+    endpoints:
+      - method: POST
+        path: /api/webhooks/polar
+        description: Process subscription and invoice lifecycle events from Polar.
+        auth_required: false
+        request_schema:
+          body:
+            type: string
+            data: object
+          headers:
+            webhook_signature: required
+        response_schema:
+          "200": "{ ok: true } | { received: true }"
+          "401": Invalid signature
+          "500": Server configuration error
+    depends_on:
+      - Polar Webhooks
+      - Supabase Admin client
+
+known_limitations:
+  - issue: Some ignored webhook events are logged but intentionally not processed for business effects.
+    location: src/app/api/webhooks/polar/route.ts
+    impact: No state changes occur for non-MVP event types.

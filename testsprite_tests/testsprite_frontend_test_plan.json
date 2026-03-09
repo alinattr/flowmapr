@@ -1,0 +1,554 @@
+[
+  {
+    "id": "TC001",
+    "title": "Generate a new flowchart diagram successfully (authenticated user)",
+    "description": "Verifies an authenticated user can generate a new diagram and see the created diagram result in the UI.",
+    "category": "Diagram Generation API",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the URL does not contain \"/login\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"New Diagram\""
+      },
+      {
+        "type": "action",
+        "description": "Type \"Customer checkout flow: start->validate payment->confirm\" into the prompt/requirements input"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Generate\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Flowchart\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC002",
+    "title": "Regenerate an existing diagram to create a new version/snapshot (authenticated user)",
+    "description": "Verifies an authenticated user can regenerate an existing diagram and see updated content reflected in the UI.",
+    "category": "Diagram Generation API",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the URL does not contain \"/login\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"New Diagram\""
+      },
+      {
+        "type": "action",
+        "description": "Type \"Customer checkout flow: start->validate payment->confirm\" into the prompt/requirements input"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Generate\" button"
+      },
+      {
+        "type": "action",
+        "description": "Type \"Refine payment step - add retry\" into the prompt/requirements input"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Regenerate\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"retry\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC003",
+    "title": "Free user exceeding monthly quota is blocked from generating diagrams",
+    "description": "Verifies generation is prevented when the user has reached the monthly quota and a feature-locked message is shown.",
+    "category": "Diagram Generation API",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the URL does not contain \"/login\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"New Diagram\""
+      },
+      {
+        "type": "action",
+        "description": "Type \"Customer checkout flow: start->validate payment->confirm\" into the prompt/requirements input"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Generate\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"generation limit\" is visible"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Upgrade\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC004",
+    "title": "Validation error when required fields are missing blocks generation",
+    "description": "Verifies the UI prevents or reports an error when attempting to generate with missing required inputs (e.g., empty prompt).",
+    "category": "Diagram Generation API",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the URL does not contain \"/login\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"New Diagram\""
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Generate\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Prompt is required\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC005",
+    "title": "API Lens analysis succeeds when submitting a valid OpenAPI spec (Basic+ user)",
+    "description": "Verifies a Basic+ user can run API Lens analysis by pasting a valid OpenAPI spec and seeing services and connections in the UI.",
+    "category": "API Lens Analysis API",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the URL contains \"/\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"API Lens\" in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Type \"openapi: 3.0.0\\ninfo:\\n  title: Orders API\\n  version: 1.0.0\\npaths:\\n  /orders:\\n    get:\\n      responses:\\n        '200':\\n          description: OK\" into the API spec input area"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Analyze\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Services\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC006",
+    "title": "API Lens analysis succeeds when submitting a prompt instead of a spec (Basic+ user)",
+    "description": "Verifies a Basic+ user can run analysis using a prompt and see structured results rendered.",
+    "category": "API Lens Analysis API",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the URL contains \"/\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"API Lens\" in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Type \"Summarize a payments service from this spec: openapi: 3.0.0 paths: /payments: post\" into the prompt input field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Analyze\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Connections\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC007",
+    "title": "API Lens validation error when submitting with neither spec nor prompt",
+    "description": "Verifies the UI prevents or rejects analysis when both inputs are empty and shows a missing input message.",
+    "category": "API Lens Analysis API",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the URL contains \"/\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"API Lens\" in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Analyze\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Missing spec\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC008",
+    "title": "API Lens shows feature-locked message for user without Basic+ access",
+    "description": "Verifies a non-eligible user is blocked from running analysis and sees a feature locked or upgrade message.",
+    "category": "API Lens Analysis API",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"free_user_no_basic_plus@example.com\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"WrongButPlausiblePassword123!\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the URL contains \"/\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"API Lens\" in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Type \"openapi: 3.0.0\\ninfo:\\n  title: Payments API\\n  version: 1.0.0\\npaths:\\n  /payments:\\n    post:\\n      responses:\\n        '200':\\n          description: OK\" into the API spec input area"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Analyze\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Feature locked\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC009",
+    "title": "API Lens shows generation limit reached message when quota is exceeded",
+    "description": "Verifies the UI displays a clear message when analysis is blocked due to generation limits.",
+    "category": "API Lens Analysis API",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"limited_user_quota_reached@example.com\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"WrongButPlausiblePassword123!\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the URL contains \"/\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"API Lens\" in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Type \"openapi: 3.0.0\\ninfo:\\n  title: Catalog API\\n  version: 1.0.0\\npaths:\\n  /items:\\n    get:\\n      responses:\\n        '200':\\n          description: OK\" into the API spec input area"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Analyze\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"limit reached\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC010",
+    "title": "API Lens displays analysis failure message when backend returns an error",
+    "description": "Verifies the UI surfaces a user-friendly error when analysis fails and no results are shown.",
+    "category": "API Lens Analysis API",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the URL contains \"/\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"API Lens\" in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Type \"openapi: 3.0.0\\ninfo:\\n  title: Broken API\\n  version: 1.0.0\\npaths:\\n  /broken:\\n    get:\\n      responses:\\n        '200':\\n          description: OK\\n# trigger: force_error\" into the API spec input area"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Analyze\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Analysis failure\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC011",
+    "title": "API Lens results render expected minimum fields after successful analysis",
+    "description": "Verifies the results view shows at least one service name and one connection after analysis succeeds.",
+    "category": "API Lens Analysis API",
+    "priority": "High",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the URL contains \"/\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"API Lens\" in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Type \"openapi: 3.0.0\\ninfo:\\n  title: Orders API\\n  version: 1.0.0\\npaths:\\n  /orders:\\n    get:\\n      responses:\\n        '200':\\n          description: OK\" into the API spec input area"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Analyze\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Orders\" is visible"
+      }
+    ]
+  },
+  {
+    "id": "TC012",
+    "title": "API Lens allows retry after a validation error by providing valid input",
+    "description": "Verifies a user can recover from a missing input error and successfully run analysis afterward.",
+    "category": "API Lens Analysis API",
+    "priority": "Medium",
+    "steps": [
+      {
+        "type": "action",
+        "description": "Navigate to /login"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_USER}}\" into the email/username field"
+      },
+      {
+        "type": "action",
+        "description": "Type \"{{LOGIN_PASSWORD}}\" into the password field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Sign in\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify the URL contains \"/\""
+      },
+      {
+        "type": "action",
+        "description": "Click on \"API Lens\" in the main navigation"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Analyze\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Missing spec\" is visible"
+      },
+      {
+        "type": "action",
+        "description": "Type \"Summarize services for an Orders API with endpoints /orders GET and /orders POST\" into the prompt input field"
+      },
+      {
+        "type": "action",
+        "description": "Click the \"Analyze\" button"
+      },
+      {
+        "type": "assertion",
+        "description": "Verify text \"Services\" is visible"
+      }
+    ]
+  }
+]

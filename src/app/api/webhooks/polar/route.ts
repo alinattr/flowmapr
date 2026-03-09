@@ -188,25 +188,54 @@ export async function POST(req: Request) {
   switch (eventType) {
     case 'subscription.created':
     case 'subscription.active': {
-      const upsertRes = await admin
-        .from('subscriptions')
-        .upsert({
-          user_id: userId,
-          plan,
-          status,
-          polar_subscription_id: subscriptionId,
-          polar_customer_id: polarCustomerId,
-          monthly_limit: monthlyLimit,
-          generations_used: 0,
-          period_start: periodStart,
-          period_end: periodEnd,
-        }, { onConflict: 'user_id' })
-      if (upsertRes.error) {
-        console.error('[polar webhook] subscriptions upsert error:', upsertRes.error)
-        Sentry.captureException(upsertRes.error, {
-          tags: { webhook: 'polar', event: eventType },
-          extra: { userId, plan, subscriptionId },
-        })
+      let matchedBySubscription = false
+
+      if (subscriptionId) {
+        const updateBySubscriptionId = await admin
+          .from('subscriptions')
+          .update({
+            plan,
+            status: 'active',
+            polar_customer_id: polarCustomerId,
+            monthly_limit: monthlyLimit,
+            period_start: periodStart,
+            period_end: periodEnd,
+          })
+          .eq('polar_subscription_id', subscriptionId)
+          .select('user_id')
+
+        if (updateBySubscriptionId.error) {
+          console.error('[polar webhook] subscriptions update by polar_subscription_id error:', updateBySubscriptionId.error)
+          Sentry.captureException(updateBySubscriptionId.error, {
+            tags: { webhook: 'polar', event: eventType },
+            extra: { userId, plan, subscriptionId, step: 'update_by_subscription_id' },
+          })
+        } else {
+          matchedBySubscription = (updateBySubscriptionId.data?.length ?? 0) > 0
+        }
+      }
+
+      if (!matchedBySubscription) {
+        const upsertRes = await admin
+          .from('subscriptions')
+          .upsert({
+            user_id: userId,
+            plan,
+            status: 'active',
+            polar_subscription_id: subscriptionId,
+            polar_customer_id: polarCustomerId,
+            monthly_limit: monthlyLimit,
+            generations_used: 0,
+            period_start: periodStart,
+            period_end: periodEnd,
+          }, { onConflict: 'user_id' })
+        if (upsertRes.error) {
+          console.error('[polar webhook] subscriptions upsert error:', upsertRes.error)
+          Sentry.captureException(upsertRes.error, {
+            tags: { webhook: 'polar', event: eventType },
+            extra: { userId, plan, subscriptionId },
+          })
+        }
       }
       break
     }
