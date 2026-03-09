@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import * as Sentry from '@sentry/nextjs'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generatePreviewFromFlowData } from '@/lib/diagram/generatePreviewSvg'
@@ -703,6 +704,10 @@ export async function POST(request: Request) {
       flowData = { nodes: parsed.nodes ?? [], edges: parsed.edges ?? [] }
     }
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: 'generate', diagramType },
+      extra: { userId: user.id, prompt: prompt?.slice(0, 200) },
+    })
     const isTimeout =
       (err as { code?: string })?.code === 'ETIMEDOUT' ||
       (err as { code?: string })?.code === 'ECONNRESET'
@@ -788,6 +793,10 @@ export async function POST(request: Request) {
       .eq('id', existingDiagramId)
 
     if (updateError) {
+      Sentry.captureException(updateError, {
+        tags: { route: 'generate', step: 'db_save' },
+        extra: { userId: user.id, diagramType },
+      })
       console.error('[generate] Failed to update diagram:', updateError)
       return NextResponse.json({ error: 'Failed to update diagram' }, { status: 500 })
     }
@@ -831,6 +840,12 @@ export async function POST(request: Request) {
       .single()
 
     if (insertError || !diagram) {
+      if (insertError) {
+        Sentry.captureException(insertError, {
+          tags: { route: 'generate', step: 'db_save' },
+          extra: { userId: user.id, diagramType },
+        })
+      }
       return NextResponse.json({ error: 'Failed to save diagram' }, { status: 500 })
     }
 
@@ -893,12 +908,20 @@ export async function POST(request: Request) {
     }
   }
 
-  await recordGenerationUsage({
-    userId: user.id,
-    diagramId: savedDiagramId,
-    diagramType,
-    tokensUsed,
-  })
+  try {
+    await recordGenerationUsage({
+      userId: user.id,
+      diagramId: savedDiagramId,
+      diagramType,
+      tokensUsed,
+    })
+  } catch (incrementError) {
+    Sentry.captureException(incrementError, {
+      tags: { route: 'generate', step: 'increment_usage' },
+      extra: { userId: user.id },
+    })
+    throw incrementError
+  }
 
   return NextResponse.json({ diagramId: savedDiagramId, flowData })
 }

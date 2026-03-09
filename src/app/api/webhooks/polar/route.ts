@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { validateEvent, WebhookVerificationError } from '@polar-sh/sdk/webhooks'
+import * as Sentry from '@sentry/nextjs'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PLANS, normalizePlan, type PlanKey } from '@/lib/subscriptions/plans'
 
@@ -92,6 +93,9 @@ export async function POST(req: Request) {
     payload = validateEvent(rawBody, headers, secret) as PolarPayload
   } catch (error) {
     if (error instanceof WebhookVerificationError) {
+      Sentry.captureException(error, {
+        tags: { webhook: 'polar', event: 'signature_error' },
+      })
       return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
     console.log(
@@ -159,6 +163,10 @@ export async function POST(req: Request) {
   }
 
   if (!userId) {
+    Sentry.captureMessage(`[polar webhook] user not found: ${eventType}`, {
+      level: 'warning',
+      extra: { customerEmail, directUserId, eventType },
+    })
     console.error('[polar webhook] user not found for event', eventType, {
       customerEmail,
       directUserId,
@@ -177,37 +185,9 @@ export async function POST(req: Request) {
 
   console.log('[polar webhook] mapped plan:', plan)
 
-  if (eventType === 'subscription.created' || eventType === 'subscription.active') {
-    const upsertRes = await admin
-      .from('subscriptions')
-      .upsert({
-        user_id: userId,
-        plan,
-        status,
-        polar_subscription_id: subscriptionId,
-        polar_customer_id: polarCustomerId,
-        monthly_limit: monthlyLimit,
-        generations_used: 0,
-        period_start: periodStart,
-        period_end: periodEnd,
-      }, { onConflict: 'user_id' })
-    if (upsertRes.error) {
-      console.error('[polar webhook] subscriptions upsert error:', upsertRes.error)
-    }
-  } else if (eventType === 'subscription.updated') {
-    const updateRes = await admin
-      .from('subscriptions')
-      .update({
-        plan,
-        status,
-        polar_subscription_id: subscriptionId,
-        polar_customer_id: polarCustomerId,
-        period_end: periodEnd,
-        monthly_limit: monthlyLimit,
-      })
-      .eq('user_id', userId)
-    if (updateRes.error) {
-      console.error('[polar webhook] subscriptions update error:', updateRes.error)
+  switch (eventType) {
+    case 'subscription.created':
+    case 'subscription.active': {
       const upsertRes = await admin
         .from('subscriptions')
         .upsert({
@@ -217,89 +197,180 @@ export async function POST(req: Request) {
           polar_subscription_id: subscriptionId,
           polar_customer_id: polarCustomerId,
           monthly_limit: monthlyLimit,
-          period_start: periodStart,
-          period_end: periodEnd,
-        }, { onConflict: 'user_id' })
-      if (upsertRes.error) {
-        console.error('[polar webhook] subscriptions update fallback upsert error:', upsertRes.error)
-      }
-    }
-  } else if (eventType === 'subscription.canceled') {
-    const cancelRes = await admin
-      .from('subscriptions')
-      .update({ status: 'canceled' })
-      .eq('user_id', userId)
-    if (cancelRes.error) {
-      console.error('[polar webhook] subscriptions cancel update error:', cancelRes.error)
-    }
-  } else if (eventType === 'invoice.paid') {
-    const invoiceRes = await admin
-      .from('subscriptions')
-      .update({
-        generations_used: 0,
-        period_start: periodStart,
-        period_end: periodEnd,
-        status: 'active',
-      })
-      .eq('user_id', userId)
-    if (invoiceRes.error) {
-      console.error('[polar webhook] invoice.paid subscriptions update error:', invoiceRes.error)
-      const upsertRes = await admin
-        .from('subscriptions')
-        .upsert({
-          user_id: userId,
-          plan,
-          status: 'active',
-          polar_subscription_id: subscriptionId,
-          polar_customer_id: polarCustomerId,
-          monthly_limit: monthlyLimit,
           generations_used: 0,
           period_start: periodStart,
           period_end: periodEnd,
         }, { onConflict: 'user_id' })
       if (upsertRes.error) {
-        console.error('[polar webhook] invoice.paid fallback upsert error:', upsertRes.error)
+        console.error('[polar webhook] subscriptions upsert error:', upsertRes.error)
+        Sentry.captureException(upsertRes.error, {
+          tags: { webhook: 'polar', event: eventType },
+          extra: { userId, plan, subscriptionId },
+        })
       }
+      break
     }
-  } else if (eventType === 'subscription.revoked') {
-    const revokedSubscriptionId =
-      asString(data.subscription_id) ??
-      asString(data.id)
-
-    let revokeRes = null
-    if (revokedSubscriptionId) {
-      revokeRes = await admin
+    case 'subscription.updated': {
+      const updateRes = await admin
         .from('subscriptions')
         .update({
-          plan: 'free',
-          status: 'active',
-          monthly_limit: 3,
-          generations_used: 0,
-          polar_subscription_id: null,
-          polar_customer_id: null,
+          plan,
+          status,
+          polar_subscription_id: subscriptionId,
+          polar_customer_id: polarCustomerId,
+          period_end: periodEnd,
+          monthly_limit: monthlyLimit,
         })
-        .eq('polar_subscription_id', revokedSubscriptionId)
+        .eq('user_id', userId)
+      if (updateRes.error) {
+        console.error('[polar webhook] subscriptions update error:', updateRes.error)
+        const upsertRes = await admin
+          .from('subscriptions')
+          .upsert({
+            user_id: userId,
+            plan,
+            status,
+            polar_subscription_id: subscriptionId,
+            polar_customer_id: polarCustomerId,
+            monthly_limit: monthlyLimit,
+            period_start: periodStart,
+            period_end: periodEnd,
+          }, { onConflict: 'user_id' })
+        if (upsertRes.error) {
+          console.error('[polar webhook] subscriptions update fallback upsert error:', upsertRes.error)
+          Sentry.captureException(upsertRes.error, {
+            tags: { webhook: 'polar', event: eventType },
+            extra: { userId, plan, subscriptionId },
+          })
+        }
+      }
+      break
     }
+    case 'subscription.canceled': {
+      const cancelRes = await admin
+        .from('subscriptions')
+        .update({ status: 'canceled' })
+        .eq('user_id', userId)
+      if (cancelRes.error) {
+        console.error('[polar webhook] subscriptions cancel update error:', cancelRes.error)
+      }
+      break
+    }
+    case 'subscription.uncanceled': {
+      const uncancelRes = await admin
+        .from('subscriptions')
+        .update({
+          status: 'active',
+          cancel_at_period_end: false,
+        })
+        .eq('polar_subscription_id', subscriptionId)
 
-    // Fallback by user_id when payload doesn't include usable subscription id.
-    if (!revokeRes || revokeRes.error) {
-      revokeRes = await admin
-      .from('subscriptions')
-      .update({
-        plan: 'free',
-        status: 'active',
-        monthly_limit: 3,
-        generations_used: 0,
-        polar_subscription_id: null,
-        polar_customer_id: null,
+      if (uncancelRes.error) {
+        console.error('[polar webhook] subscription.uncanceled update error:', uncancelRes.error)
+      }
+
+      console.log(`[polar webhook] subscription reactivated: ${subscriptionId}`)
+      break
+    }
+    case 'invoice.paid': {
+      const invoiceRes = await admin
+        .from('subscriptions')
+        .update({
+          generations_used: 0,
+          period_start: periodStart,
+          period_end: periodEnd,
+          status: 'active',
+        })
+        .eq('user_id', userId)
+      if (invoiceRes.error) {
+        console.error('[polar webhook] invoice.paid subscriptions update error:', invoiceRes.error)
+        const upsertRes = await admin
+          .from('subscriptions')
+          .upsert({
+            user_id: userId,
+            plan,
+            status: 'active',
+            polar_subscription_id: subscriptionId,
+            polar_customer_id: polarCustomerId,
+            monthly_limit: monthlyLimit,
+            generations_used: 0,
+            period_start: periodStart,
+            period_end: periodEnd,
+          }, { onConflict: 'user_id' })
+        if (upsertRes.error) {
+          console.error('[polar webhook] invoice.paid fallback upsert error:', upsertRes.error)
+          Sentry.captureException(upsertRes.error, {
+            tags: { webhook: 'polar', event: eventType },
+            extra: { userId, plan, subscriptionId },
+          })
+        }
+      }
+      break
+    }
+    case 'subscription.revoked': {
+      const revokedSubscriptionId =
+        asString(data.subscription_id) ??
+        asString(data.id)
+
+      let revokeRes = null
+      if (revokedSubscriptionId) {
+        revokeRes = await admin
+          .from('subscriptions')
+          .update({
+            plan: 'free',
+            status: 'active',
+            monthly_limit: 3,
+            generations_used: 0,
+            polar_subscription_id: null,
+            polar_customer_id: null,
+          })
+          .eq('polar_subscription_id', revokedSubscriptionId)
+      }
+
+      // Fallback by user_id when payload doesn't include usable subscription id.
+      if (!revokeRes || revokeRes.error) {
+        revokeRes = await admin
+          .from('subscriptions')
+          .update({
+            plan: 'free',
+            status: 'active',
+            monthly_limit: 3,
+            generations_used: 0,
+            polar_subscription_id: null,
+            polar_customer_id: null,
+          })
+          .eq('user_id', userId)
+      }
+      if (revokeRes.error) {
+        console.error('[polar webhook] subscription.revoked update error:', revokeRes.error)
+      }
+      break
+    }
+    case 'order.created':
+    case 'order.updated':
+    case 'order.paid':
+    case 'order.refunded':
+    case 'refund.created':
+    case 'refund.updated':
+    case 'checkout.created':
+    case 'checkout.updated':
+      Sentry.captureMessage(`[polar webhook] ignored: ${eventType}`, {
+        level: 'info',
+        extra: {
+          customerEmail,
+          productId: productId ?? 'n/a',
+          eventType,
+        },
       })
-      .eq('user_id', userId)
-    }
-    if (revokeRes.error) {
-      console.error('[polar webhook] subscription.revoked update error:', revokeRes.error)
-    }
-  } else {
-    console.log('[polar webhook] unhandled event type:', eventType)
+      break
+    case 'customer.created':
+    case 'customer.updated':
+    case 'customer.state_changed':
+    case 'organization.updated':
+      console.log(`[polar webhook] ignored event: ${eventType}`)
+      break
+    default:
+      console.log('[polar webhook] unhandled event type:', eventType)
   }
 
   return NextResponse.json({ ok: true })

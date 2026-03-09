@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import * as Sentry from '@sentry/nextjs'
 import { createClient } from '@/lib/supabase/server'
 import { checkGenerationLimit } from '@/lib/subscriptions/checkGenerationLimit'
 import { hasFeature } from '@/lib/subscriptions/hasFeature'
@@ -96,7 +97,11 @@ export async function POST(request: Request) {
       tokensUsed: completion.usage?.total_tokens ?? null,
     })
     return NextResponse.json(parsed)
-  } catch {
+  } catch (error) {
+    Sentry.captureException(error, {
+      tags: { route: 'api-lens' },
+      extra: { userId: user.id },
+    })
     return NextResponse.json({ error: 'Failed to analyse API spec' }, { status: 500 })
   }
 }

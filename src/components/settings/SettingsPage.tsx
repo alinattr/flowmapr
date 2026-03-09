@@ -50,11 +50,12 @@ export function SettingsPage({
   const [fullName, setFullName] = useState(initialFullName ?? '')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
   const [checkoutLoading, setCheckoutLoading] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [typedDelete, setTypedDelete] = useState('')
-  const localSubStatus = subscriptionStatus
-  const localSubPeriodEnd = subscriptionPeriodEnd
+  const [localSubStatus, setLocalSubStatus] = useState(subscriptionStatus)
+  const [localSubPeriodEnd, setLocalSubPeriodEnd] = useState(subscriptionPeriodEnd)
 
   const generationsRemaining = monthlyLimit - generationsUsed
   const usagePercent =
@@ -119,6 +120,25 @@ export function SettingsPage({
       toast.error((payload.error as string) ?? 'Failed to delete account')
       setDeleting(false)
       setDeleteDialogOpen(false)
+    }
+  }
+
+  async function handleCancelSubscription() {
+    setCancelling(true)
+    try {
+      const res = await fetch('/api/subscriptions/cancel', { method: 'POST' })
+      const payload = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error((payload.error as string) ?? 'Failed to cancel subscription')
+        return
+      }
+      setLocalSubStatus('canceled')
+      if (payload.periodEnd && typeof payload.periodEnd === 'string') {
+        setLocalSubPeriodEnd(payload.periodEnd)
+      }
+      toast.success('Subscription cancelled')
+    } finally {
+      setCancelling(false)
     }
   }
 
@@ -238,6 +258,19 @@ export function SettingsPage({
                 </div>
                 <Progress value={usagePercent} className="h-2" />
               </div>
+
+              {(plan === 'basic' || plan === 'pro') && localSubStatus === 'active' && (
+                <div className="flex justify-start">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleCancelSubscription}
+                    disabled={cancelling}
+                  >
+                    {cancelling ? 'Canceling…' : 'Cancel subscription'}
+                  </Button>
+                </div>
+              )}
 
               {plan === 'free' && (
                 <div className="grid gap-3 md:grid-cols-2">

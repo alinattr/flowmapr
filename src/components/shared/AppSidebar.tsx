@@ -717,32 +717,6 @@ export function AppSidebar({ plan, generationsRemaining, onNewDiagram }: AppSide
           </div>
         )}
 
-        {plan === 'basic' && (
-          <div style={{ padding: '10px', borderTop: `1px solid ${T.divider}`, flexShrink: 0 }}>
-            <div style={{
-              padding: '14px',
-              borderRadius: 10,
-              background: 'linear-gradient(135deg, rgba(99,102,241,0.12), rgba(139,92,246,0.08))',
-              border: '1px solid rgba(99,102,241,0.2)',
-            }}>
-              <p style={{ fontSize: 12, fontWeight: 700, color: T.upgradeTitle, fontFamily: 'Inter, sans-serif', marginBottom: 4 }}>
-                Upgrade to Pro
-              </p>
-              <p style={{ fontSize: 11, color: T.upgradeDesc, fontFamily: 'Inter, sans-serif', lineHeight: 1.5, marginBottom: 10 }}>
-                500 AI generations/month, Code Lens, Export to Confluence/Notion & more
-              </p>
-              <Link href="/settings" style={{
-                display: 'block', textAlign: 'center',
-                padding: '7px', borderRadius: 7,
-                background: 'linear-gradient(135deg, #6366F1, #8B5CF6)',
-                color: '#FFFFFF', fontSize: 12, fontWeight: 600,
-                fontFamily: 'Inter, sans-serif', textDecoration: 'none',
-              }}>
-                Upgrade →
-              </Link>
-            </div>
-          </div>
-        )}
       </aside>
 
       {/* ── Project context menu (portal) ────────────────────────────────────── */}

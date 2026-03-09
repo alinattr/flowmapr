@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
+import * as Sentry from '@sentry/nextjs'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { generatePreviewFromFlowData } from '@/lib/diagram/generatePreviewSvg'
@@ -324,6 +325,10 @@ export async function POST(request: Request) {
     }, { status: 200 })
 
   } catch (err) {
+    Sentry.captureException(err, {
+      tags: { route: 'code-lens' },
+      extra: { userId: user.id },
+    })
     console.error('[code-lens] Error:', err)
     return NextResponse.json(
       { error: 'Failed to analyse code. Please try again.' },
