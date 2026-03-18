@@ -7,8 +7,13 @@ import { generatePreviewFromFlowData } from '@/lib/diagram/generatePreviewSvg'
 import { checkGenerationLimit } from '@/lib/subscriptions/checkGenerationLimit'
 import { hasFeature } from '@/lib/subscriptions/hasFeature'
 import { recordGenerationUsage } from '@/lib/subscriptions/recordGenerationUsage'
+import { lensRatelimit } from '@/lib/ratelimit'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+  timeout: 60_000,
+  maxRetries: 0,
+})
 
 // ─── Injection guard ──────────────────────────────────────────────────────────
 const INJECTION_GUARD = `You are a technical documentation assistant. Your only job is to analyze code and return structured JSON documentation.
@@ -172,6 +177,16 @@ export async function POST(request: Request) {
       { error: 'generation_limit_reached', plan: usage.plan, limit: usage.limit },
       { status: 403 }
     )
+  }
+
+  try {
+    const { success } = await lensRatelimit.limit(user.id)
+    if (!success) {
+      return NextResponse.json({ error: 'rate_limit_exceeded' }, { status: 429 })
+    }
+  } catch (err) {
+    // Redis unavailable — fail open, log to Sentry
+    Sentry.captureException(err, { tags: { context: 'ratelimit' } })
   }
 
   // ── Parse body ───────────────────────────────────────────────────────────

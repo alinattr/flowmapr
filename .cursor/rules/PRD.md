@@ -33,17 +33,14 @@ Flowmapr is a web-based SaaS that generates professional BPMN and User Flow diag
 - Generation counter enforcement
 - Account & subscription management (upgrade, downgrade, cancel, delete account)
 - Landing page (/)
+- Version history
+- Confluence / Notion / Jira integrations
 
 ### Out of scope (Post-MVP)
-- Version history
-- Commenting
 - Team workspace
 - Real-time multiplayer editing
-- Confluence / Notion / Jira integrations
 - Mobile app
 - API access
-- Dark mode
-- Russian-language UI
 - Priority support / SLA
 
 ---
@@ -60,7 +57,6 @@ Flowmapr is a web-based SaaS that generates professional BPMN and User Flow diag
 | Upload doc as context | ✗ | ✓ | ✓ |
 
 - Payments via Polar.sh
-- Annual billing available (2 months free)
 - Re-prompting an existing diagram costs 1 generation credit
 - Generation counter resets on billing anniversary date
 
@@ -87,11 +83,8 @@ Diagrams auto-save on every canvas change, debounced at 2 seconds after the last
 
 All accessible from user menu in top nav:
 - View current plan + generation counter (used / remaining)
-- Upgrade plan (immediate effect)
-- Downgrade plan (end of billing period)
 - Cancel subscription (access until end of paid period, then reverts to Free Trial limits)
 - View billing history + download invoices (Polar.sh customer portal)
-- Update payment method (Polar.sh customer portal)
 - Delete account (confirmation modal required, permanently deletes all data)
 
 ---

@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server'
 import { checkGenerationLimit } from '@/lib/subscriptions/checkGenerationLimit'
 import { hasFeature } from '@/lib/subscriptions/hasFeature'
 import { recordGenerationUsage } from '@/lib/subscriptions/recordGenerationUsage'
+import { lensRatelimit } from '@/lib/ratelimit'
 
 const MAX_PROMPT_LENGTH = 4000
 
@@ -72,6 +73,16 @@ export async function POST(request: Request) {
     )
   }
 
+  try {
+    const { success } = await lensRatelimit.limit(user.id)
+    if (!success) {
+      return NextResponse.json({ error: 'rate_limit_exceeded' }, { status: 429 })
+    }
+  } catch (err) {
+    // Redis unavailable — fail open, log to Sentry
+    Sentry.captureException(err, { tags: { context: 'ratelimit' } })
+  }
+
   const body = await request.json() as { spec?: unknown; prompt?: unknown }
   const rawInput = body.spec ?? body.prompt
 
@@ -90,7 +101,11 @@ export async function POST(request: Request) {
 
   const input = rawInput
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    timeout: 60_000,
+    maxRetries: 0,
+  })
 
   try {
     const completion = await openai.chat.completions.create({

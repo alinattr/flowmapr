@@ -10,6 +10,7 @@ import { validateRequestBody, sanitizePrompt } from '@/lib/input-validator'
 import { checkGenerationLimit } from '@/lib/subscriptions/checkGenerationLimit'
 import { hasFeature } from '@/lib/subscriptions/hasFeature'
 import { recordGenerationUsage } from '@/lib/subscriptions/recordGenerationUsage'
+import { generateRatelimit } from '@/lib/ratelimit'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Prompt injection guard — prepended to every system prompt.
@@ -673,7 +674,31 @@ export async function POST(request: Request) {
     )
   }
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+  try {
+    const { success, limit, remaining, reset } = await generateRatelimit.limit(user.id)
+    if (!success) {
+      return NextResponse.json(
+        { error: 'rate_limit_exceeded', limit, remaining, reset },
+        {
+          status: 429,
+          headers: {
+            'X-RateLimit-Limit': limit.toString(),
+            'X-RateLimit-Remaining': remaining.toString(),
+            'X-RateLimit-Reset': reset.toString(),
+          },
+        }
+      )
+    }
+  } catch (err) {
+    // Redis unavailable — fail open, log to Sentry
+    Sentry.captureException(err, { tags: { context: 'ratelimit' } })
+  }
+
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+    timeout: 90_000,
+    maxRetries: 0,
+  })
 
   let flowData: Record<string, unknown>
   let tokensUsed: number | null = null

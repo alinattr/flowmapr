@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -37,6 +37,15 @@ interface SettingsPageProps {
   subscriptionPeriodEnd?: string | null
 }
 
+interface InvoiceItem {
+  id: string
+  date: string
+  amount: number
+  currency: string
+  status: string
+  invoiceUrl: string | null
+}
+
 export function SettingsPage({
   email,
   fullName: initialFullName,
@@ -56,6 +65,8 @@ export function SettingsPage({
   const [typedDelete, setTypedDelete] = useState('')
   const [localSubStatus, setLocalSubStatus] = useState(subscriptionStatus)
   const [localSubPeriodEnd, setLocalSubPeriodEnd] = useState(subscriptionPeriodEnd)
+  const [invoices, setInvoices] = useState<InvoiceItem[]>([])
+  const [invoicesLoading, setInvoicesLoading] = useState(plan !== 'free')
 
   const generationsRemaining = monthlyLimit - generationsUsed
   const usagePercent =
@@ -77,6 +88,42 @@ export function SettingsPage({
         year: 'numeric',
       })
     : null
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadInvoices() {
+      if (plan === 'free') {
+        setInvoices([])
+        setInvoicesLoading(false)
+        return
+      }
+
+      setInvoicesLoading(true)
+      try {
+        const res = await fetch('/api/subscriptions/invoices')
+        const payload = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          if (!cancelled) setInvoices([])
+          return
+        }
+        if (!cancelled) {
+          setInvoices(
+            Array.isArray(payload.invoices)
+              ? (payload.invoices as InvoiceItem[])
+              : []
+          )
+        }
+      } finally {
+        if (!cancelled) setInvoicesLoading(false)
+      }
+    }
+
+    loadInvoices()
+    return () => {
+      cancelled = true
+    }
+  }, [plan])
 
   async function handleSaveProfile() {
     setSaving(true)
@@ -259,6 +306,19 @@ export function SettingsPage({
                 <Progress value={usagePercent} className="h-2" />
               </div>
 
+              {plan !== 'free' && localSubStatus === 'active' && localSubPeriodEnd && (
+                <div className="mt-3 flex justify-between text-sm">
+                  <span className="text-[var(--color-text-secondary)]">Next billing date</span>
+                  <span className="font-medium text-[var(--color-text-primary)]">
+                    {new Date(localSubPeriodEnd).toLocaleDateString('en-US', {
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
+                  </span>
+                </div>
+              )}
+
               {(plan === 'basic' || plan === 'pro') && localSubStatus === 'active' && (
                 <div className="flex justify-start">
                   <Button
@@ -336,6 +396,74 @@ export function SettingsPage({
                 </div>
               )}
             </div>
+
+            {plan !== 'free' && invoicesLoading && (
+              <div className="mt-6">
+                <h3 className="mb-3 text-sm font-semibold">Billing history</h3>
+                <div className="rounded-lg border border-[var(--color-border)] p-4">
+                  <div className="space-y-2">
+                    {[1, 2, 3].map((row) => (
+                      <div
+                        key={row}
+                        className="h-5 w-full animate-pulse rounded bg-[var(--color-surface-raised)]"
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {plan !== 'free' && !invoicesLoading && invoices.length > 0 && (
+              <div className="mt-6">
+                <h3 className="mb-3 text-sm font-semibold">Billing history</h3>
+                <div className="overflow-hidden rounded-lg border border-[var(--color-border)]">
+                  <table className="w-full text-sm">
+                    <thead className="bg-[var(--color-surface-raised)]/50">
+                      <tr>
+                        <th className="px-4 py-2 text-left font-medium text-[var(--color-text-secondary)]">Date</th>
+                        <th className="px-4 py-2 text-left font-medium text-[var(--color-text-secondary)]">Amount</th>
+                        <th className="px-4 py-2 text-left font-medium text-[var(--color-text-secondary)]">Status</th>
+                        <th className="px-4 py-2 text-right font-medium text-[var(--color-text-secondary)]">Invoice</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {invoices.map((inv) => (
+                        <tr key={inv.id} className="border-t border-[var(--color-border)]">
+                          <td className="px-4 py-3">
+                            {new Date(inv.date).toLocaleDateString('en-US', {
+                              month: 'short',
+                              day: 'numeric',
+                              year: 'numeric',
+                            })}
+                          </td>
+                          <td className="px-4 py-3">{`$${inv.amount.toFixed(2)} ${inv.currency}`}</td>
+                          <td className="px-4 py-3">
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                inv.status === 'paid'
+                                  ? 'bg-green-500/10 text-green-500'
+                                  : 'bg-[var(--color-surface-raised)] text-[var(--color-text-secondary)]'
+                              }`}
+                            >
+                              {inv.status}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            {inv.invoiceUrl ? (
+                              <a href={inv.invoiceUrl} target="_blank" className="text-xs text-[var(--color-accent-brand)] hover:underline">
+                                Download
+                              </a>
+                            ) : (
+                              <span className="text-xs text-[var(--color-text-secondary)]">—</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
           </section>
 
           <Separator className="my-8" />
