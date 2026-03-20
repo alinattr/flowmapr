@@ -32,6 +32,8 @@ export async function updateSession(request: NextRequest) {
     if (origin) {
       const allowedOrigins = [
         process.env.NEXT_PUBLIC_APP_URL,
+        'https://flowmapr.com',
+        'https://www.flowmapr.com',
         'http://localhost:3000',
         'http://localhost:3001',
       ].filter(Boolean) as string[]
