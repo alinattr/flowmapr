@@ -16,16 +16,23 @@ function getMonthWindow(date = new Date()) {
 
 export async function checkGenerationLimit(userId: string): Promise<GenerationLimitCheck> {
   const admin = createAdminClient()
-  const { data: sub } = await admin
+  const { data: sub, error } = await admin
     .from('subscriptions')
     .select('plan, monthly_limit, generations_used')
     .eq('user_id', userId)
     .maybeSingle()
 
+  console.log('[checkGenerationLimit] userId:', userId)
+  console.log('[checkGenerationLimit] sub:', JSON.stringify(sub))
+  console.log('[checkGenerationLimit] error:', error)
+
   const plan = normalizePlan(sub?.plan)
   const limit = Number(sub?.monthly_limit ?? PLANS[plan].generation_limit)
 
   let used = Number(sub?.generations_used ?? 0)
+
+  console.log('[checkGenerationLimit] plan:', plan, 'limit:', limit, 'used:', used)
+  console.log('[checkGenerationLimit] allowed:', used < limit)
 
   // No subscription row yet: enforce Free via generation_log count.
   if (!sub) {
@@ -37,6 +44,7 @@ export async function checkGenerationLimit(userId: string): Promise<GenerationLi
       .gte('created_at', start)
       .lt('created_at', end)
     used = count ?? 0
+    console.log('[checkGenerationLimit] fallback generation_log count used:', used)
   }
 
   return {
