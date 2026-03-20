@@ -87,6 +87,14 @@ export function LandingNav() {
               {item}
             </a>
           ))}
+          <Link
+            href="/blog"
+            style={{ fontSize: 14, color: '#94A3B8', textDecoration: 'none', fontFamily: 'Inter, sans-serif', transition: 'color 0.15s ease' }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#E2E8F0')}
+            onMouseLeave={e => (e.currentTarget.style.color = '#94A3B8')}
+          >
+            Blog
+          </Link>
         </div>
 
         <div style={{ flex: 1 }} />
