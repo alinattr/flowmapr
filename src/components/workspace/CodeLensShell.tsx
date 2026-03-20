@@ -43,6 +43,8 @@ interface CodeLensShellProps {
   forceLocked?: boolean
 }
 
+const MAX_CODE_LENS_INPUT_LENGTH = 6000
+
 // ─── Theme tokens ─────────────────────────────────────────────────────────────
 function useClTokens(isDark: boolean) {
   return {
@@ -436,6 +438,7 @@ export function CodeLensShell({
               <textarea
                 value={code}
                 onChange={e => setCode(e.target.value)}
+                maxLength={MAX_CODE_LENS_INPUT_LENGTH}
                 placeholder={`Paste your code here...\n\nExamples:\n• A function with business logic\n• An API route handler\n• A database query\n• A security middleware`}
                 style={{
                   width: '100%',
@@ -456,6 +459,21 @@ export function CodeLensShell({
                 onFocus={e => { e.currentTarget.style.borderColor = T.textareaFocusBorder }}
                 onBlur={e => { e.currentTarget.style.borderColor = T.textareaBorder }}
               />
+              <div
+                style={{
+                  textAlign: 'right',
+                  fontSize: 11,
+                  marginTop: 4,
+                  color:
+                    code.length > MAX_CODE_LENS_INPUT_LENGTH * 0.95
+                      ? '#ef4444'
+                      : code.length > MAX_CODE_LENS_INPUT_LENGTH * 0.8
+                        ? '#f97316'
+                        : '#52525b',
+                }}
+              >
+                {code.length} / {MAX_CODE_LENS_INPUT_LENGTH}
+              </div>
             </div>
 
             {/* Output type toggle */}

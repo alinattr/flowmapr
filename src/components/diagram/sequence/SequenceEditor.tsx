@@ -198,6 +198,7 @@ interface SequenceEditorProps {
 }
 
 type ViewMode = 'visual' | 'split' | 'code'
+const MAX_PROMPT_LENGTH = 2000
 
 export function SequenceEditor({
   diagramId,
@@ -480,6 +481,7 @@ export function SequenceEditor({
                   <textarea
                     value={promptText}
                     onChange={e => setPromptText(e.target.value)}
+                    maxLength={MAX_PROMPT_LENGTH}
                     placeholder="Describe the interaction you want to diagram…"
                     rows={4}
                     style={{
@@ -491,6 +493,21 @@ export function SequenceEditor({
                       outline: 'none', fontFamily: 'Inter, sans-serif',
                     }}
                   />
+                  <div
+                    style={{
+                      textAlign: 'right',
+                      fontSize: 11,
+                      marginTop: 4,
+                      color:
+                        promptText.length > MAX_PROMPT_LENGTH * 0.95
+                          ? '#ef4444'
+                          : promptText.length > MAX_PROMPT_LENGTH * 0.8
+                            ? '#f97316'
+                            : '#52525b',
+                    }}
+                  >
+                    {promptText.length} / {MAX_PROMPT_LENGTH}
+                  </div>
 
                   <button
                     onClick={handleRegenerate}

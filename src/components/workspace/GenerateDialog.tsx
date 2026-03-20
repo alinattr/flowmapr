@@ -24,6 +24,7 @@ interface GenerateDialogProps {
 }
 
 const DIAGRAM_TYPES = CANONICAL_TYPES.map(t => ({ ...t, desc: t.description }))
+const MAX_PROMPT_LENGTH = 2000
 
 const PLACEHOLDERS: Record<string, string> = {
   bpmn: 'e.g. Online order process: Customer places order, Payment Service validates card, Warehouse picks items, Delivery assigns courier, Customer receives package.',
@@ -135,11 +136,27 @@ export function GenerateDialog({ open, onOpenChange }: GenerateDialogProps) {
               id="prompt"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
+              maxLength={MAX_PROMPT_LENGTH}
               placeholder={PLACEHOLDERS[diagramType] ?? 'Describe your process…'}
               rows={5}
               className="font-mono text-sm"
               style={{ maxHeight: 200, overflowY: 'auto', resize: 'vertical' }}
             />
+            <div
+              style={{
+                textAlign: 'right',
+                fontSize: 11,
+                marginTop: 4,
+                color:
+                  prompt.length > MAX_PROMPT_LENGTH * 0.95
+                    ? '#ef4444'
+                    : prompt.length > MAX_PROMPT_LENGTH * 0.8
+                      ? '#f97316'
+                      : '#52525b',
+              }}
+            >
+              {prompt.length} / {MAX_PROMPT_LENGTH}
+            </div>
           </div>
 
           <Button

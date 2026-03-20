@@ -19,6 +19,8 @@ interface OnboardingModalProps {
   userName?: string
 }
 
+const MAX_PROMPT_LENGTH = 2000
+
 export function OnboardingModal({ onComplete, userName }: OnboardingModalProps) {
   const [step, setStep] = useState(0)
   const [selectedType, setSelectedType] = useState<DiagramTypeValue | null>(null)
@@ -322,6 +324,7 @@ export function OnboardingModal({ onComplete, userName }: OnboardingModalProps) 
               <textarea
                 value={prompt}
                 onChange={e => setPrompt(e.target.value)}
+                maxLength={MAX_PROMPT_LENGTH}
                 rows={4}
                 placeholder={`Describe your ${selectedDiagram?.label ?? 'diagram'}...`}
                 style={{
@@ -335,6 +338,23 @@ export function OnboardingModal({ onComplete, userName }: OnboardingModalProps) 
                   maxHeight: 160, overflowY: 'auto',
                 }}
               />
+              <div
+                style={{
+                  textAlign: 'right',
+                  fontSize: 11,
+                  marginTop: 4,
+                  marginBottom: 16,
+                  color:
+                    prompt.length > MAX_PROMPT_LENGTH * 0.95
+                      ? '#ef4444'
+                      : prompt.length > MAX_PROMPT_LENGTH * 0.8
+                        ? '#f97316'
+                        : '#52525b',
+                  fontFamily: 'Inter, sans-serif',
+                }}
+              >
+                {prompt.length} / {MAX_PROMPT_LENGTH}
+              </div>
 
               <div style={{ display: 'flex', gap: 10 }}>
                 <button

@@ -148,7 +148,7 @@ QUALITY CHECKLIST:
 
 Generate a flowchart for the following process description.`
 
-const MAX_PROMPT_LENGTH = 4000
+const MAX_PROMPT_LENGTH = 6000
 
 // Strip PlantUML "sd " prefix that the model sometimes outputs even when instructed not to.
 function cleanSequenceTitle(title: string): string {

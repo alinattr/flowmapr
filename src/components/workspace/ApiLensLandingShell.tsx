@@ -17,6 +17,8 @@ interface ApiLensLandingShellProps {
   locked?: boolean
 }
 
+const MAX_API_LENS_INPUT_LENGTH = 8000
+
 function useAlTokens(isDark: boolean) {
   return {
     panelBorder:         isDark ? '1px solid rgba(255,255,255,0.06)' : '1px solid #E4E4E7',
@@ -146,6 +148,7 @@ export function ApiLensLandingShell({
               <textarea
                 value={spec}
                 onChange={e => setSpec(e.target.value)}
+                maxLength={MAX_API_LENS_INPUT_LENGTH}
                 placeholder={`Paste your OpenAPI/Swagger spec here, or describe your API endpoints:\n\ne.g. POST /auth/login — authenticate user\nGET /users/me — get current user profile\nPOST /payment/init — initialize payment\nGET /wallet/balance — get wallet balance\nDELETE /users/{id} — delete user account`}
                 style={{
                   width: '100%',
@@ -166,6 +169,21 @@ export function ApiLensLandingShell({
                 onFocus={e => { e.currentTarget.style.borderColor = T.textareaFocusBorder }}
                 onBlur={e => { e.currentTarget.style.borderColor = T.textareaBorder }}
               />
+              <div
+                style={{
+                  textAlign: 'right',
+                  fontSize: 11,
+                  marginTop: 4,
+                  color:
+                    spec.length > MAX_API_LENS_INPUT_LENGTH * 0.95
+                      ? '#ef4444'
+                      : spec.length > MAX_API_LENS_INPUT_LENGTH * 0.8
+                        ? '#f97316'
+                        : '#52525b',
+                }}
+              >
+                {spec.length} / {MAX_API_LENS_INPUT_LENGTH}
+              </div>
             </div>
 
             {/* Generation credits */}

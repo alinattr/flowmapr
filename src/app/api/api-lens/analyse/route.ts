@@ -7,7 +7,7 @@ import { hasFeature } from '@/lib/subscriptions/hasFeature'
 import { recordGenerationUsage } from '@/lib/subscriptions/recordGenerationUsage'
 import { lensRatelimit } from '@/lib/ratelimit'
 
-const MAX_PROMPT_LENGTH = 4000
+const MAX_PROMPT_LENGTH = 8000
 
 const SYSTEM_PROMPT = `You are an API documentation and architecture expert.
 Given an OpenAPI spec, Swagger file, or plain-text description of API endpoints, produce:

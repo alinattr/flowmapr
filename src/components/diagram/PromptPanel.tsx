@@ -18,6 +18,8 @@ interface PromptPanelProps {
   onRegenerate: (prompt: string, diagramType: string) => void
 }
 
+const MAX_PROMPT_LENGTH = 2000
+
 export function PromptPanel({
   initialPrompt,
   diagramType: initialType,
@@ -84,10 +86,26 @@ export function PromptPanel({
             <Textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
+              maxLength={MAX_PROMPT_LENGTH}
               placeholder="Describe your process…"
               rows={4}
               className="resize-none text-sm"
             />
+            <div
+              style={{
+                textAlign: 'right',
+                fontSize: 11,
+                marginTop: 4,
+                color:
+                  prompt.length > MAX_PROMPT_LENGTH * 0.95
+                    ? '#ef4444'
+                    : prompt.length > MAX_PROMPT_LENGTH * 0.8
+                      ? '#f97316'
+                      : '#52525b',
+              }}
+            >
+              {prompt.length} / {MAX_PROMPT_LENGTH}
+            </div>
 
             <Button
               size="sm"

@@ -31,6 +31,7 @@ interface ApiService {
 }
 
 type Connection = { id: string; source: string; target: string; label: string }
+const MAX_API_LENS_INPUT_LENGTH = 8000
 
 interface ApiLensEditorProps {
   diagramId: string
@@ -261,6 +262,7 @@ export function ApiLensEditor({
               <textarea
                 value={specText}
                 onChange={e => setSpecText(e.target.value)}
+                maxLength={MAX_API_LENS_INPUT_LENGTH}
                 disabled={analysing}
                 placeholder={`Paste OpenAPI spec or describe your API:\n\nPOST /auth/login — authenticate user\nGET /users/me — get current user\nPOST /orders — create order\n...\n\nor paste full YAML/JSON spec`}
                 style={{
@@ -280,6 +282,21 @@ export function ApiLensEditor({
                 onFocus={e => { e.currentTarget.style.borderColor = 'rgba(6,182,212,0.5)' }}
                 onBlur={e => { e.currentTarget.style.borderColor = 'var(--color-border, rgba(255,255,255,0.1))' }}
               />
+              <div
+                style={{
+                  textAlign: 'right',
+                  fontSize: 11,
+                  marginTop: 4,
+                  color:
+                    specText.length > MAX_API_LENS_INPUT_LENGTH * 0.95
+                      ? '#ef4444'
+                      : specText.length > MAX_API_LENS_INPUT_LENGTH * 0.8
+                        ? '#f97316'
+                        : '#52525b',
+                }}
+              >
+                {specText.length} / {MAX_API_LENS_INPUT_LENGTH}
+              </div>
             </div>
 
             {/* Footer */}

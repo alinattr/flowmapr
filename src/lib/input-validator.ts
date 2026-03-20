@@ -22,7 +22,7 @@ const ALLOWED_DIAGRAM_TYPES = [
 
 export type DiagramType = (typeof ALLOWED_DIAGRAM_TYPES)[number]
 
-const MAX_PROMPT_LENGTH = 2000
+const MAX_PROMPT_LENGTH = 2000 // Keep aligned with client prompt editors that post to /api/generate
 const MIN_PROMPT_LENGTH = 5
 const MAX_TITLE_LENGTH = 100
 
