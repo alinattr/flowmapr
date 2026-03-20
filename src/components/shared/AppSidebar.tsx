@@ -121,6 +121,7 @@ export function AppSidebar({ plan, generationsRemaining, onNewDiagram }: AppSide
   const [renamingProject, setRenamingProject] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
   const isConfirmingRef = useRef(false)
+  const activeRenamingProjectIdRef = useRef<string | null>(null)
   const [showNewProjectTooltip, setShowNewProjectTooltip] = useState(false)
   const tooltipTimerRef = useRef<number | null>(null)
 
@@ -209,34 +210,32 @@ export function AppSidebar({ plan, generationsRemaining, onNewDiagram }: AppSide
 
   // ── Rename project ──────────────────────────────────────────────────────────
   const startRenaming = (projectId: string, currentName: string) => {
-    setProjectMenu(null)
+    activeRenamingProjectIdRef.current = projectId
     setRenamingProject(projectId)
     setRenameValue(currentName)
+    setTimeout(() => setProjectMenu(null), 0)
   }
 
   const confirmRename = async (projectId: string) => {
-    console.log('[rename] confirmRename called, projectId:', projectId, 'renameValue:', renameValue)
     if (isConfirmingRef.current) {
-      console.log('[rename] already confirming, skipping')
       return
     }
     isConfirmingRef.current = true
+    const targetProjectId = activeRenamingProjectIdRef.current ?? projectId
 
     const name = renameValue.trim()
-    console.log('[rename] name after trim:', name)
     if (name) {
-      console.log('[rename] calling renameProject...')
-      const success = await renameProject(projectId, name)
-      console.log('[rename] renameProject result:', success)
+      const success = await renameProject(targetProjectId, name)
       if (success) {
-        setProjects(prev => prev.map(p => p.id === projectId ? { ...p, name } : p))
+        setProjects(prev => prev.map(p => p.id === targetProjectId ? { ...p, name } : p))
+        activeRenamingProjectIdRef.current = null
         setRenamingProject(null)
       } else {
         // keep edit mode open, show error
         toast.error('Failed to rename project. Please try again.')
       }
     } else {
-      console.log('[rename] empty name, closing')
+      activeRenamingProjectIdRef.current = null
       setRenamingProject(null)
     }
 
@@ -480,14 +479,12 @@ export function AppSidebar({ plan, generationsRemaining, onNewDiagram }: AppSide
                       autoFocus
                       value={renameValue}
                       onChange={e => setRenameValue(e.target.value)}
-                      onBlur={() => {
-                        console.log('[rename] blur fired')
-                        confirmRename(project.id)
-                      }}
                       onKeyDown={e => {
-                        console.log('[rename] keydown:', e.key)
                         if (e.key === 'Enter') confirmRename(project.id)
-                        if (e.key === 'Escape') setRenamingProject(null)
+                        if (e.key === 'Escape') {
+                          activeRenamingProjectIdRef.current = null
+                          setRenamingProject(null)
+                        }
                       }}
                       style={{
                         flex: 1, background: 'transparent', border: 'none', outline: 'none',
@@ -504,17 +501,31 @@ export function AppSidebar({ plan, generationsRemaining, onNewDiagram }: AppSide
                     </span>
                   )}
 
-                  {/* ··· menu trigger */}
-                  <button
-                    onClick={e => {
-                      e.stopPropagation()
-                      const rect = e.currentTarget.getBoundingClientRect()
-                      setProjectMenu({ id: project.id, x: rect.right + 4, y: rect.top })
-                    }}
-                    style={{ background: 'none', border: 'none', padding: 3, cursor: 'pointer', color: T.textMuted, display: 'flex', flexShrink: 0, borderRadius: 4 }}
-                  >
-                    <MoreHorizontal size={13} />
-                  </button>
+                  {/* Save rename OR ··· menu trigger */}
+                  {isRenamingThis ? (
+                    <button
+                      onClick={() => confirmRename(project.id)}
+                      style={{
+                        background: 'none', border: 'none', padding: 3,
+                        cursor: 'pointer', color: '#22C55E',
+                        display: 'flex', flexShrink: 0, borderRadius: 4,
+                      }}
+                      title="Save rename"
+                    >
+                      <Check size={13} />
+                    </button>
+                  ) : (
+                    <button
+                      onClick={e => {
+                        e.stopPropagation()
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        setProjectMenu({ id: project.id, x: rect.right + 4, y: rect.top })
+                      }}
+                      style={{ background: 'none', border: 'none', padding: 3, cursor: 'pointer', color: T.textMuted, display: 'flex', flexShrink: 0, borderRadius: 4 }}
+                    >
+                      <MoreHorizontal size={13} />
+                    </button>
+                  )}
                 </div>
 
                 {/* Project artifacts (diagrams) */}
