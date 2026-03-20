@@ -120,6 +120,7 @@ export function AppSidebar({ plan, generationsRemaining, onNewDiagram }: AppSide
   const [projectMenu, setProjectMenu] = useState<{ id: string; x: number; y: number } | null>(null)
   const [renamingProject, setRenamingProject] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
+  const isConfirmingRef = useRef(false)
   const [showNewProjectTooltip, setShowNewProjectTooltip] = useState(false)
   const tooltipTimerRef = useRef<number | null>(null)
 
@@ -214,6 +215,9 @@ export function AppSidebar({ plan, generationsRemaining, onNewDiagram }: AppSide
   }
 
   const confirmRename = async (projectId: string) => {
+    if (isConfirmingRef.current) return
+    isConfirmingRef.current = true
+
     const name = renameValue.trim()
     if (name) {
       const success = await renameProject(projectId, name)
@@ -227,6 +231,8 @@ export function AppSidebar({ plan, generationsRemaining, onNewDiagram }: AppSide
     } else {
       setRenamingProject(null)
     }
+
+    isConfirmingRef.current = false
   }
 
   // ── Delete project ──────────────────────────────────────────────────────────
