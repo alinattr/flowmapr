@@ -15,6 +15,17 @@ Sentry.init({
   // Enable sending user PII (Personally Identifiable Information)
   // https://docs.sentry.io/platforms/javascript/guides/nextjs/configuration/options/#sendDefaultPii
   sendDefaultPii: true,
+  ignoreErrors: [
+    'Maximum call stack size exceeded',
+    /chrome-extension/,
+    /moz-extension/,
+    /safari-extension/,
+  ],
+  denyUrls: [
+    /extensions\//i,
+    /^chrome:\/\//i,
+    /^chrome-extension:\/\//i,
+  ],
 });
 
 export const onRouterTransitionStart = Sentry.captureRouterTransitionStart;

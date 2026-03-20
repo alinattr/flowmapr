@@ -4,6 +4,7 @@ import { Toaster } from 'sonner'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { ThemeProvider } from '@/lib/theme/ThemeProvider'
 import { CrispChat } from '@/components/CrispChat'
+import { SpeedInsights } from "@vercel/speed-insights/next"
 import './globals.css'
 
 const inter = Inter({
@@ -70,6 +71,7 @@ export default function RootLayout({
           <Toaster position="bottom-right" richColors closeButton />
         </ThemeProvider>
         <CrispChat />
+        <SpeedInsights />
       </body>
     </html>
   )

@@ -14,7 +14,7 @@ export function CrispChat() {
     if (consent !== 'accepted') return
 
     window.$crisp = []
-    window.CRISP_WEBSITE_ID = 'e164a0a7-7d70-4c79-9219-f2571ef93f7b'
+    window.CRISP_WEBSITE_ID = process.env.NEXT_PUBLIC_CRISP_WEBSITE_ID ?? ''
     window.$crisp.push(['config', 'color:theme', 'purple'])
     window.$crisp.push(['config', 'color:scheme', 'dark'])
     window.$crisp.push(['safe', true])
