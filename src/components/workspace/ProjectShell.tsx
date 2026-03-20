@@ -17,6 +17,7 @@ import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { AppSidebar } from '@/components/shared/AppSidebar'
+import { FeatureUpgradeModal } from '@/components/shared/FeatureUpgradeModal'
 import { GenerateDialog } from '@/components/workspace/GenerateDialog'
 import { OnboardingModal } from '@/components/onboarding/OnboardingModal'
 import { WorkspaceToolbar, type SortOption, type ViewMode } from '@/components/workspace/WorkspaceToolbar'
@@ -121,6 +122,7 @@ export function ProjectShell({
   const isDark = theme === 'dark'
 
   const [generateOpen, setGenerateOpen] = useState(false)
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
   const [diagrams, setDiagrams] = useState(initialDiagrams)
   const [explainArtifacts, setExplainArtifacts] = useState<Artifact[]>([])
   const [codeLensArtifacts, setCodeLensArtifacts] = useState<Artifact[]>([])
@@ -739,6 +741,14 @@ export function ProjectShell({
 
   // ── Empty state ────────────────────────────────────────────────────────────
   function EmptyState() {
+    const handleEmptyStateCta = () => {
+      if (activeTab === 'api_lens' && plan === 'free') {
+        setUpgradeModalOpen(true)
+        return
+      }
+      setGenerateOpen(true)
+    }
+
     const isSearch = search.trim().length > 0
     const tabLabel =
       activeTab === 'code_lens' ? 'Code Lens analyses' :
@@ -775,7 +785,7 @@ export function ProjectShell({
                 Open {activeTab === 'code_lens' ? 'Code Lens' : 'Explain Diagram'} →
               </Link>
             ) : (
-              <button onClick={() => setGenerateOpen(true)} className="mt-6" style={{ padding: '9px 20px', borderRadius: 10, background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: 'white', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'Inter, sans-serif' }}>
+              <button onClick={handleEmptyStateCta} className="mt-6" style={{ padding: '9px 20px', borderRadius: 10, background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: 'white', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'Inter, sans-serif' }}>
                 <Sparkles size={14} strokeWidth={1.5} />
                 Generate a diagram
               </button>
@@ -968,6 +978,12 @@ export function ProjectShell({
       </div>
 
       <GenerateDialog open={generateOpen} onOpenChange={setGenerateOpen} />
+      <FeatureUpgradeModal
+        open={upgradeModalOpen}
+        onOpenChange={setUpgradeModalOpen}
+        featureName="API Lens"
+        requiredPlan="basic"
+      />
 
       {showOnboarding && (
         <OnboardingModal

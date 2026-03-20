@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { AppSidebar } from '@/components/shared/AppSidebar'
+import { FeatureUpgradeModal } from '@/components/shared/FeatureUpgradeModal'
 import { GenerateDialog } from '@/components/workspace/GenerateDialog'
 import { WorkspaceToolbar, type SortOption, type ViewMode } from '@/components/workspace/WorkspaceToolbar'
 import { Sparkles, FileText, MoreHorizontal, Trash2, FolderInput, GitBranch, Pencil } from 'lucide-react'
@@ -98,6 +99,7 @@ export function WorkspaceShell({
   const isDark = theme === 'dark'
 
   const [generateOpen, setGenerateOpen] = useState(false)
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
   const [diagrams, setDiagrams] = useState(initialDiagrams)
   const [projects, setProjects] = useState<Project[]>([])
   const [explainArtifacts, setExplainArtifacts] = useState<Artifact[]>([])
@@ -613,6 +615,14 @@ export function WorkspaceShell({
 
   // ── Empty state content ──────────────────────────────────────────────────
   function EmptyState() {
+    const handleEmptyStateCta = () => {
+      if (activeTab === 'api_lens' && plan === 'free') {
+        setUpgradeModalOpen(true)
+        return
+      }
+      setGenerateOpen(true)
+    }
+
     if (search.trim()) return (
       <div className="flex flex-col items-center text-center pt-20" style={{ color: 'var(--color-text-secondary)' }}>
         <div style={{ fontSize: 32, marginBottom: 12 }}>🔍</div>
@@ -656,7 +666,7 @@ export function WorkspaceShell({
               Explain a diagram →
             </Link>
           ) : (
-            <button className="mt-6" onClick={() => setGenerateOpen(true)} style={{
+            <button className="mt-6" onClick={handleEmptyStateCta} style={{
               padding: '9px 20px', borderRadius: 10, background: 'linear-gradient(135deg,#6366F1,#8B5CF6)',
               color: 'white', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer',
               display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'Inter, sans-serif',
@@ -857,6 +867,12 @@ export function WorkspaceShell({
       </div>
 
       <GenerateDialog open={generateOpen} onOpenChange={setGenerateOpen} />
+      <FeatureUpgradeModal
+        open={upgradeModalOpen}
+        onOpenChange={setUpgradeModalOpen}
+        featureName="API Lens"
+        requiredPlan="basic"
+      />
 
       {showOnboarding && (
         <OnboardingModal
