@@ -131,7 +131,7 @@ export default async function BlogPostPage({ params }: PageProps) {
               textDecoration: 'none',
             }}
           >
-            ← Back to blog
+            ← Back to Blog
           </Link>
         </div>
 

@@ -20,6 +20,21 @@ export default function BlogIndexPage() {
       }}
     >
       <div style={{ maxWidth: 980, margin: '0 auto', padding: '96px 24px 64px' }}>
+        <Link
+          href="/"
+          style={{
+            display: 'inline-block',
+            marginBottom: 18,
+            color: '#94A3B8',
+            fontSize: 13,
+            textDecoration: 'none',
+            transition: 'color 0.15s ease',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.color = '#E2E8F0')}
+          onMouseLeave={e => (e.currentTarget.style.color = '#94A3B8')}
+        >
+          ← Back to Flowmapr
+        </Link>
         <h1
           style={{
             fontSize: 'clamp(34px, 5vw, 52px)',

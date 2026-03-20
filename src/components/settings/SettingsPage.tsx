@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -25,6 +26,7 @@ import {
   Loader2,
   Trash2,
   ArrowUpRight,
+  ArrowLeft,
 } from 'lucide-react'
 
 interface SettingsPageProps {
@@ -228,6 +230,13 @@ export function SettingsPage({
       />
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-2xl px-6 py-8">
+          <Link
+            href="/workspace"
+            className="mb-6 flex w-fit items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to workspace
+          </Link>
           <h1 className="text-[30px] font-semibold text-[var(--color-text-primary)]">
             Settings
           </h1>

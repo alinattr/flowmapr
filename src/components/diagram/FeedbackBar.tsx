@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 const REASONS = [
@@ -23,6 +23,22 @@ export function FeedbackBar({ diagramId, diagramType, userId }: FeedbackBarProps
   const [showReasons, setShowReasons] = useState(false)
   const [submitted, setSubmitted] = useState(false)
   const supabase = createClient()
+
+  useEffect(() => {
+    if (!diagramId || !userId) return
+    supabase
+      .from('generation_feedback')
+      .select('rating')
+      .eq('diagram_id', diagramId)
+      .eq('user_id', userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (data?.rating) {
+          setRating(data.rating as 'up' | 'down')
+          setSubmitted(true)
+        }
+      })
+  }, [diagramId, userId, supabase])
 
   async function submit(r: 'up' | 'down', reason?: string) {
     setRating(r)

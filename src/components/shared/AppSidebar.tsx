@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { Plus, ChevronRight, MoreHorizontal, Pencil, Trash2, Check, X, ArrowUpRight, MessageCircle } from 'lucide-react'
+import { toast } from 'sonner'
 import { useTheme } from '@/lib/theme/ThemeProvider'
 import { GenerateDialog } from '@/components/workspace/GenerateDialog'
 import { NewArtifactModal } from '@/components/workspace/NewArtifactModal'
@@ -215,10 +216,17 @@ export function AppSidebar({ plan, generationsRemaining, onNewDiagram }: AppSide
   const confirmRename = async (projectId: string) => {
     const name = renameValue.trim()
     if (name) {
-      await renameProject(projectId, name)
-      setProjects(prev => prev.map(p => p.id === projectId ? { ...p, name } : p))
+      const success = await renameProject(projectId, name)
+      if (success) {
+        setProjects(prev => prev.map(p => p.id === projectId ? { ...p, name } : p))
+        setRenamingProject(null)
+      } else {
+        // keep edit mode open, show error
+        toast.error('Failed to rename project. Please try again.')
+      }
+    } else {
+      setRenamingProject(null)
     }
-    setRenamingProject(null)
   }
 
   // ── Delete project ──────────────────────────────────────────────────────────
