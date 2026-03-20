@@ -820,7 +820,10 @@ export function AppSidebar({ plan, generationsRemaining, onNewDiagram }: AppSide
                 {PROJECT_COLORS.map(c => (
                   <button
                     key={c}
-                    onClick={() => handleColorChange(project.id, c)}
+                    onMouseDown={e => {
+                      e.stopPropagation()
+                      handleColorChange(project.id, c)
+                    }}
                     style={{
                       width: 18, height: 18, borderRadius: '50%', background: c,
                       border: project.color === c ? '2px solid white' : '2px solid transparent',
@@ -834,7 +837,10 @@ export function AppSidebar({ plan, generationsRemaining, onNewDiagram }: AppSide
 
             {/* Rename */}
             <button
-              onClick={() => startRenaming(project.id, project.name)}
+              onMouseDown={e => {
+                e.stopPropagation()
+                startRenaming(project.id, project.name)
+              }}
               style={{
                 width: '100%', textAlign: 'left', padding: '8px 14px',
                 background: 'none', border: 'none', cursor: 'pointer',
@@ -847,7 +853,10 @@ export function AppSidebar({ plan, generationsRemaining, onNewDiagram }: AppSide
             {/* Delete (disabled for default) */}
             {!project.is_default && (
               <button
-                onClick={() => handleDeleteProject(project.id)}
+                onMouseDown={e => {
+                  e.stopPropagation()
+                  handleDeleteProject(project.id)
+                }}
                 style={{
                   width: '100%', textAlign: 'left', padding: '8px 14px',
                   background: 'none', border: 'none', cursor: 'pointer',
