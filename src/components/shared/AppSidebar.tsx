@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Plus, ChevronRight, MoreHorizontal, Pencil, Trash2, Check, X, ArrowUpRight } from 'lucide-react'
+import { Plus, ChevronRight, MoreHorizontal, Pencil, Trash2, Check, X, ArrowUpRight, MessageCircle } from 'lucide-react'
 import { useTheme } from '@/lib/theme/ThemeProvider'
 import { GenerateDialog } from '@/components/workspace/GenerateDialog'
 import { NewArtifactModal } from '@/components/workspace/NewArtifactModal'
@@ -266,6 +266,12 @@ export function AppSidebar({ plan, generationsRemaining, onNewDiagram }: AppSide
       return
     }
     setNewArtifactOpen(true)
+  }
+
+  const handleContactSupport = () => {
+    if (typeof window !== 'undefined' && (window as Window & { $crisp?: unknown[] }).$crisp) {
+      ;(window as Window & { $crisp: unknown[] }).$crisp.push(['do', 'chat:open'])
+    }
   }
 
   // ── Close project menu on outside click ─────────────────────────────────────
@@ -662,6 +668,35 @@ export function AppSidebar({ plan, generationsRemaining, onNewDiagram }: AppSide
               )}
             </div>
           )}
+        </div>
+
+        {/* ── Contact support ───────────────────────────────────────────────── */}
+        <div style={{ padding: '4px 10px', borderTop: `1px solid ${T.divider}`, flexShrink: 0 }}>
+          <button
+            onClick={handleContactSupport}
+            style={{
+              width: '100%',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              padding: '8px 10px',
+              borderRadius: 8,
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
+              color: T.textMuted,
+              fontSize: 12,
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 500,
+              textAlign: 'left',
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = T.text)}
+            onMouseLeave={e => (e.currentTarget.style.color = T.textMuted)}
+          >
+            <MessageCircle size={13} style={{ flexShrink: 0 }} />
+            Contact support
+          </button>
         </div>
 
         {/* ── Suggest a feature ──────────────────────────────────────────────── */}
