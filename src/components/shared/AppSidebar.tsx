@@ -215,12 +215,19 @@ export function AppSidebar({ plan, generationsRemaining, onNewDiagram }: AppSide
   }
 
   const confirmRename = async (projectId: string) => {
-    if (isConfirmingRef.current) return
+    console.log('[rename] confirmRename called, projectId:', projectId, 'renameValue:', renameValue)
+    if (isConfirmingRef.current) {
+      console.log('[rename] already confirming, skipping')
+      return
+    }
     isConfirmingRef.current = true
 
     const name = renameValue.trim()
+    console.log('[rename] name after trim:', name)
     if (name) {
+      console.log('[rename] calling renameProject...')
       const success = await renameProject(projectId, name)
+      console.log('[rename] renameProject result:', success)
       if (success) {
         setProjects(prev => prev.map(p => p.id === projectId ? { ...p, name } : p))
         setRenamingProject(null)
@@ -229,6 +236,7 @@ export function AppSidebar({ plan, generationsRemaining, onNewDiagram }: AppSide
         toast.error('Failed to rename project. Please try again.')
       }
     } else {
+      console.log('[rename] empty name, closing')
       setRenamingProject(null)
     }
 
@@ -472,8 +480,12 @@ export function AppSidebar({ plan, generationsRemaining, onNewDiagram }: AppSide
                       autoFocus
                       value={renameValue}
                       onChange={e => setRenameValue(e.target.value)}
-                      onBlur={() => confirmRename(project.id)}
+                      onBlur={() => {
+                        console.log('[rename] blur fired')
+                        confirmRename(project.id)
+                      }}
                       onKeyDown={e => {
+                        console.log('[rename] keydown:', e.key)
                         if (e.key === 'Enter') confirmRename(project.id)
                         if (e.key === 'Escape') setRenamingProject(null)
                       }}
