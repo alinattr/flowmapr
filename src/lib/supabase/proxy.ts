@@ -10,6 +10,8 @@ const PUBLIC_ROUTES = [
   '/auth/callback',
   '/share',
   '/embed',
+  '/blog',
+  '/blog/(.*)',
   '/terms',
   '/privacy',
 ]
