@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { checkPasswordStrength } from '@/lib/validation/password'
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
@@ -34,10 +35,17 @@ export function SignupForm() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const strength = checkPasswordStrength(password)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+
+    if (strength.score < 3) {
+      setError('Password is too weak. ' + strength.issues.join(', '))
+      return
+    }
+
     setLoading(true)
 
     const supabase = createClient()
@@ -119,7 +127,7 @@ export function SignupForm() {
             value={password}
             onChange={e => setPassword(e.target.value)}
             required
-            minLength={6}
+            minLength={8}
             style={{ ...inputStyle, paddingRight: 40 }}
           />
           <button
@@ -144,6 +152,36 @@ export function SignupForm() {
             {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
           </button>
         </div>
+        {password.length > 0 && (
+          <div style={{ marginTop: 6 }}>
+            <div style={{ display: 'flex', gap: 4, marginBottom: 4 }}>
+              {[1, 2, 3, 4].map(i => (
+                <div
+                  key={i}
+                  style={{
+                    flex: 1,
+                    height: 3,
+                    borderRadius: 2,
+                    background: i <= strength.score
+                      ? strength.score <= 1
+                        ? '#ef4444'
+                        : strength.score <= 2
+                          ? '#f97316'
+                          : strength.score <= 3
+                            ? '#eab308'
+                            : '#22c55e'
+                      : 'rgba(255,255,255,0.1)',
+                  }}
+                />
+              ))}
+            </div>
+            {strength.issues.length > 0 && (
+              <p style={{ fontSize: 11, color: '#71717a', margin: 0 }}>
+                Missing: {strength.issues.join(' · ')}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
       {error && (
