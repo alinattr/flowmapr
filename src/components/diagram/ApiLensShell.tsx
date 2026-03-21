@@ -29,7 +29,7 @@ interface ApiEndpoint {
   responses?: Array<{ status: number; description: string; schema?: string | null }>
 }
 
-interface ApiService {
+export interface ApiLensService {
   id: string
   name: string
   kind?: string
@@ -38,18 +38,24 @@ interface ApiService {
   position: { x: number; y: number }
 }
 
-type Connection = { id: string; source: string; target: string; label: string }
+export type ApiLensConnection = { id: string; source: string; target: string; label: string }
 
 type ApiLensView = 'c4_l1' | 'c4_l2'
 
 interface ApiLensShellProps {
-  services: ApiService[]
-  connections: Connection[]
+  services: ApiLensService[]
+  connections: ApiLensConnection[]
   diagramTitle?: string
   linkedC4?: { l1Id: string | null; l2Id: string | null }
   onEditSpec?: () => void
   /** Supabase diagram ID — enables drag-position persistence */
   diagramId?: string
+  /** Public share / embed: no edit, no exports, no dragging */
+  readOnly?: boolean
+  /** Restored L1 node positions from `flow_data.c4l1_positions` */
+  c4l1Positions?: Record<string, { x: number; y: number }> | null
+  /** Restored L2 node positions from `flow_data.c4l2_positions` */
+  c4l2Positions?: Record<string, { x: number; y: number }> | null
 }
 
 function cleanText(value: string | undefined | null): string {
@@ -85,7 +91,7 @@ function primaryEndpointLabel(endpoints: ApiEndpoint[]): string {
   return `${first.method} ${first.path}`
 }
 
-function shortL1ActionLabel(service: ApiService): string {
+function shortL1ActionLabel(service: ApiLensService): string {
   const name = cleanText(service.name).toLowerCase()
   const has = (re: RegExp) =>
     re.test(name) || service.endpoints.some((e) => re.test(e.path.toLowerCase()))
@@ -98,9 +104,23 @@ function shortL1ActionLabel(service: ApiService): string {
 
 // ─── C4 L1 node builder (system context view) ─────────────────────────────────
 
+function applySavedPositions(
+  nodes: Node[],
+  positions?: Record<string, { x: number; y: number }> | null,
+): Node[] {
+  if (!positions || typeof positions !== 'object') return nodes
+  return nodes.map((n) => {
+    const p = positions[n.id]
+    if (p && Number.isFinite(p.x) && Number.isFinite(p.y)) {
+      return { ...n, position: { x: p.x, y: p.y } }
+    }
+    return n
+  })
+}
+
 function buildC4L1(
-  services: ApiService[],
-  _connections: Connection[],
+  services: ApiLensService[],
+  _connections: ApiLensConnection[],
 ): { nodes: Node[]; edges: Edge[] } {
   const clientId = '__client'
   const visibleServices = services.filter((s) => cleanText(s.name).length > 0)
@@ -176,8 +196,8 @@ function buildC4L1(
 // ─── C4 L2 node builder (container detail view) ───────────────────────────────
 
 function buildC4L2(
-  services: ApiService[],
-  connections: Connection[],
+  services: ApiLensService[],
+  connections: ApiLensConnection[],
 ): { nodes: Node[]; edges: Edge[] } {
   const nodes: Node[] = []
   const edges: Edge[] = []
@@ -292,8 +312,11 @@ export function ApiLensShell({
   diagramTitle = 'API Documentation',
   onEditSpec,
   diagramId,
+  readOnly = false,
+  c4l1Positions = null,
+  c4l2Positions = null,
 }: ApiLensShellProps) {
-  const [selectedService, setSelectedService] = useState<ApiService | null>(null)
+  const [selectedService, setSelectedService] = useState<ApiLensService | null>(null)
   const [currentView, setCurrentView] = useState<ApiLensView>('c4_l1')
 
   // Compute initial node/edge sets once at mount
@@ -302,9 +325,17 @@ export function ApiLensShell({
     l2: { nodes: Node[]; edges: Edge[] }
   } | null>(null)
   if (!initRef.current) {
+    const l1built = buildC4L1(services, connections)
+    const l2built = buildC4L2(services, connections)
     initRef.current = {
-      l1: buildC4L1(services, connections),
-      l2: buildC4L2(services, connections),
+      l1: {
+        nodes: applySavedPositions(l1built.nodes, c4l1Positions),
+        edges: l1built.edges,
+      },
+      l2: {
+        nodes: applySavedPositions(l2built.nodes, c4l2Positions),
+        edges: l2built.edges,
+      },
     }
   }
 
@@ -342,7 +373,7 @@ export function ApiLensShell({
   const savedPositionsRef = useRef<{ c4l1: Record<string, { x: number; y: number }>; c4l2: Record<string, { x: number; y: number }> }>({ c4l1: {}, c4l2: {} })
 
   const handleNodeDragStop = useCallback(() => {
-    if (!diagramId) return
+    if (readOnly || !diagramId) return
     const activeNodes = currentView === 'c4_l1' ? c4l1Nodes : c4l2Nodes
     const positions: Record<string, { x: number; y: number }> = {}
     activeNodes.forEach(n => { positions[n.id] = n.position })
@@ -358,7 +389,7 @@ export function ApiLensShell({
         c4l2_positions: savedPositionsRef.current.c4l2,
       },
     }).eq('id', diagramId).then(() => {})
-  }, [diagramId, currentView, c4l1Nodes, c4l2Nodes, services, connections])
+  }, [readOnly, diagramId, currentView, c4l1Nodes, c4l2Nodes, services, connections])
 
   // Node click — select service for endpoint panel
   const onNodeClick = useCallback((_: React.MouseEvent, node: Node) => {
@@ -382,7 +413,7 @@ export function ApiLensShell({
       }}>
         {/* Toolbar */}
         <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--color-border, rgba(255,255,255,0.06))', display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-          {onEditSpec && (
+          {!readOnly && onEditSpec && (
             <button
               onClick={onEditSpec}
               style={{
@@ -394,26 +425,30 @@ export function ApiLensShell({
               ✎ Edit Spec
             </button>
           )}
-          <button
-            onClick={() => downloadOpenApi(services, diagramTitle)}
-            style={{
-              padding: '4px 10px', borderRadius: 5, fontSize: 11,
-              background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)',
-              color: '#A78BFA', cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-            }}
-          >
-            ↓ OpenAPI
-          </button>
-          <button
-            onClick={() => downloadMarkdown(services, diagramTitle)}
-            style={{
-              padding: '4px 10px', borderRadius: 5, fontSize: 11,
-              background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
-              color: '#71717A', cursor: 'pointer', fontFamily: 'Inter, sans-serif',
-            }}
-          >
-            ↓ Markdown
-          </button>
+          {!readOnly && (
+            <>
+              <button
+                onClick={() => downloadOpenApi(services, diagramTitle)}
+                style={{
+                  padding: '4px 10px', borderRadius: 5, fontSize: 11,
+                  background: 'rgba(99,102,241,0.12)', border: '1px solid rgba(99,102,241,0.3)',
+                  color: '#A78BFA', cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                }}
+              >
+                ↓ OpenAPI
+              </button>
+              <button
+                onClick={() => downloadMarkdown(services, diagramTitle)}
+                style={{
+                  padding: '4px 10px', borderRadius: 5, fontSize: 11,
+                  background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)',
+                  color: '#71717A', cursor: 'pointer', fontFamily: 'Inter, sans-serif',
+                }}
+              >
+                ↓ Markdown
+              </button>
+            </>
+          )}
         </div>
 
         {/* Stats */}
@@ -548,8 +583,8 @@ export function ApiLensShell({
             nodeTypes={nodeTypes}
             onNodeClick={onNodeClick}
             onNodesChange={onNodesChange}
-            onNodeDragStop={handleNodeDragStop}
-            nodesDraggable
+            onNodeDragStop={readOnly ? undefined : handleNodeDragStop}
+            nodesDraggable={!readOnly}
             nodesConnectable={false}
             elementsSelectable
             panOnDrag

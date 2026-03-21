@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { EmbedViewer } from '@/components/diagram/EmbedViewer'
+import { EmbedViewer, type EmbedViewerApiLensData } from '@/components/diagram/EmbedViewer'
 import type { SequenceData } from '@/components/diagram/sequence/SequenceRenderer'
 import { parseFlowData } from '@/lib/diagram'
 
@@ -47,9 +47,9 @@ export default async function SharePage({ params }: PageProps) {
 
   const flowData = (diagram.flow_data ?? {}) as Record<string, unknown>
 
-  // diagram_type usage in this file (canonical DB values: bpmn, uml_sequence, erd, flowchart, c4_l1, c4_l2):
-  // - Sequence branch: only explicit check is here — 'SEQUENCE' (legacy / embed parity) or 'uml_sequence' (canonical).
-  // - bpmn, flowchart, c4_l1, c4_l2, erd: no string checks; flow_data drives nodes/edges via parseFlowData + EmbedViewer.
+  // diagram_type: sequence → SequenceRenderer; api_lens → services/connections in EmbedViewer;
+  // else → parseFlowData (bpmn, flowchart, c4_*, erd, …).
+  const isApiLens = diagram.diagram_type === 'api_lens'
   const isSequence =
     diagram.diagram_type === 'SEQUENCE' ||
     diagram.diagram_type === 'uml_sequence'
@@ -57,6 +57,7 @@ export default async function SharePage({ params }: PageProps) {
   let sequenceData: SequenceData | null = null
   let reactFlowNodes: unknown[] = []
   let reactFlowEdges: unknown[] = []
+  let apiLensData: EmbedViewerApiLensData | null = null
 
   if (isSequence) {
     sequenceData = {
@@ -70,6 +71,19 @@ export default async function SharePage({ params }: PageProps) {
       fragments: Array.isArray(flowData.fragments)
         ? (flowData.fragments as SequenceData['fragments'])
         : [],
+    }
+  } else if (isApiLens) {
+    apiLensData = {
+      services: Array.isArray(flowData.services) ? flowData.services : [],
+      connections: Array.isArray(flowData.connections)
+        ? flowData.connections
+        : [],
+      c4l1_positions: flowData.c4l1_positions as
+        | Record<string, { x: number; y: number }>
+        | undefined,
+      c4l2_positions: flowData.c4l2_positions as
+        | Record<string, { x: number; y: number }>
+        | undefined,
     }
   } else {
     const parsed = parseFlowData(
@@ -112,6 +126,7 @@ export default async function SharePage({ params }: PageProps) {
           sequenceData={sequenceData}
           nodes={reactFlowNodes}
           edges={reactFlowEdges}
+          apiLensData={apiLensData}
         />
       </div>
     </div>
