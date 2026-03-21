@@ -29,6 +29,24 @@ import { C4BoundaryNode } from '@/components/diagram/nodes/c4/C4BoundaryNode'
 import { ErdEntityNode } from '@/components/diagram/nodes/erd/ErdEntityNode'
 
 const nodeTypes = {
+  // camelCase (stored in DB by editor) — PRIMARY
+  bpmnTask: BpmnTaskNode,
+  bpmnGateway: BpmnGatewayNode,
+  bpmnStartEvent: BpmnStartEventNode,
+  bpmnEndEvent: BpmnEndEventNode,
+  bpmnPool: BpmnPoolNode,
+  bpmnLane: BpmnLaneNode,
+  fcStart: FcStartNode,
+  fcEnd: FcEndNode,
+  fcProcess: FcProcessNode,
+  fcDecision: FcDecisionNode,
+  fcData: FcDataNode,
+  fcSubprocess: FcSubprocessNode,
+  c4Person: C4PersonNode,
+  c4Container: C4ContainerNode,
+  c4Boundary: C4BoundaryNode,
+  c4SystemExt: C4SystemExtNode,
+  // kebab-case aliases (legacy/embed)
   'bpmn-task': BpmnTaskNode,
   'bpmn-gateway': BpmnGatewayNode,
   'bpmn-start': BpmnStartEventNode,
