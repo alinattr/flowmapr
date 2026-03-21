@@ -98,7 +98,11 @@ export function ApiLensEditor({
       const res = await fetch('/api/api-lens/analyse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ spec: specText.trim() }),
+        body: JSON.stringify({
+          spec: specText.trim(),
+          existingServices: services,
+          existingConnections: connections,
+        }),
       })
 
       if (!res.ok) {

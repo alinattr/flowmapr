@@ -83,7 +83,17 @@ export async function POST(request: Request) {
     Sentry.captureException(err, { tags: { context: 'ratelimit' } })
   }
 
-  const body = await request.json() as { spec?: unknown; prompt?: unknown }
+  const body = await request.json() as {
+    spec?: unknown
+    prompt?: unknown
+    existingServices?: unknown
+    existingConnections?: unknown
+  }
+  const existingServices = body.existingServices ?? []
+  const existingConnections = body.existingConnections ?? []
+  const hasExistingState =
+    Array.isArray(existingServices) && (existingServices as unknown[]).length > 0
+
   const rawInput = body.spec ?? body.prompt
 
   if (typeof rawInput !== 'string') {
@@ -101,6 +111,28 @@ export async function POST(request: Request) {
 
   const input = rawInput
 
+  const messages = hasExistingState
+    ? [
+        { role: 'system' as const, content: SYSTEM_PROMPT },
+        {
+          role: 'user' as const,
+          content: `Current diagram state (preserve unless explicitly asked to change):
+${JSON.stringify({ services: existingServices, connections: existingConnections }, null, 2)}
+
+User instruction: ${input}
+
+Rules:
+- Keep all existing services and endpoints unless explicitly told to remove them
+- Only add/modify/remove what the instruction specifies
+- Preserve existing service names, endpoint paths, methods and descriptions
+- Return the complete updated services and connections arrays`,
+        },
+      ]
+    : [
+        { role: 'system' as const, content: SYSTEM_PROMPT },
+        { role: 'user' as const, content: input },
+      ]
+
   const openai = new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
     timeout: 60_000,
@@ -113,10 +145,7 @@ export async function POST(request: Request) {
       max_tokens: 4000,
       temperature: 0.3,
       response_format: { type: 'json_object' },
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: input },
-      ],
+      messages,
     })
 
     const text = completion.choices[0]?.message?.content

@@ -28,20 +28,12 @@ export default async function SharePage({ params }: PageProps) {
   const { slug } = await params
   const supabase = createAdminClient()
 
-  const { data: diagram, error } = await supabase
+  const { data: diagram } = await supabase
     .from('diagrams')
     .select('id, title, flow_data, diagram_type, is_public, public_slug')
     .eq('public_slug', slug)
     .eq('is_public', true)
     .single()
-
-  console.log('[share] slug:', slug)
-  console.log('[share] error:', error)
-  console.log('[share] diagram:', JSON.stringify(diagram))
-  console.log(
-    '[share] flow_data keys:',
-    diagram?.flow_data ? Object.keys(diagram.flow_data as object) : 'null'
-  )
 
   if (!diagram) notFound()
 
@@ -92,15 +84,6 @@ export default async function SharePage({ params }: PageProps) {
     reactFlowNodes = parsed.nodes
     reactFlowEdges = parsed.edges
   }
-
-  console.log('[share] diagram_type:', diagram.diagram_type)
-  console.log('[share] isApiLens:', isApiLens)
-  console.log('[share] apiLensData:', JSON.stringify(apiLensData))
-  console.log('[share] services count:', (apiLensData as any)?.services?.length)
-  console.log(
-    '[share] connections count:',
-    (apiLensData as any)?.connections?.length
-  )
 
   return (
     <div className="flex h-screen flex-col bg-[var(--color-bg)]">
