@@ -352,13 +352,13 @@ export function SequenceEditor({
       setUpgradeModalOpen(true)
       return
     }
-    await saveVersion(
-      diagramId,
-      { ...data, title } as Record<string, unknown>,
-      `Before update · ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
-    )
     setRegenerating(true)
     try {
+      await saveVersion(
+        diagramId,
+        { ...data, title } as Record<string, unknown>,
+        `Before update · ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
+      )
       const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -379,7 +379,6 @@ export function SequenceEditor({
             action: { label: 'Upgrade', onClick: () => router.push('/settings') },
           })
         }
-        setRegenerating(false)
         return
       }
       const result = await res.json()

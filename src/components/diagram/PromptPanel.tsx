@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import { DIAGRAM_TYPES, normalizeType, type DiagramTypeValue } from '@/lib/diagram-types'
 import { FeatureUpgradeModal } from '@/components/shared/FeatureUpgradeModal'
+import { GenerationLoader } from '@/components/shared/GenerationLoader'
 import { toast } from 'sonner'
 import type { Node, Edge } from '@xyflow/react'
 
@@ -241,5 +242,7 @@ export function PromptPanel({
         requiredPlan="basic"
       />
     </div>
+    {loading && <GenerationLoader />}
+    </>
   )
 }
