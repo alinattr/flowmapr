@@ -114,6 +114,7 @@ export function PromptPanel({
   }
 
   return (
+    <>
     <div className="absolute bottom-4 left-4 z-10 w-80">
       <div className="overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] shadow-lg">
         <button
