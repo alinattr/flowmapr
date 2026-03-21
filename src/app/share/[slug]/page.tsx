@@ -46,7 +46,13 @@ export default async function SharePage({ params }: PageProps) {
   if (!diagram) notFound()
 
   const flowData = (diagram.flow_data ?? {}) as Record<string, unknown>
-  const isSequence = diagram.diagram_type === 'SEQUENCE'
+
+  // diagram_type usage in this file (canonical DB values: bpmn, uml_sequence, erd, flowchart, c4_l1, c4_l2):
+  // - Sequence branch: only explicit check is here — 'SEQUENCE' (legacy / embed parity) or 'uml_sequence' (canonical).
+  // - bpmn, flowchart, c4_l1, c4_l2, erd: no string checks; flow_data drives nodes/edges via parseFlowData + EmbedViewer.
+  const isSequence =
+    diagram.diagram_type === 'SEQUENCE' ||
+    diagram.diagram_type === 'uml_sequence'
 
   let sequenceData: SequenceData | null = null
   let reactFlowNodes: unknown[] = []
@@ -102,7 +108,7 @@ export default async function SharePage({ params }: PageProps) {
       <div className="min-h-0 flex-1 overflow-auto">
         <EmbedViewer
           title={diagram.title}
-          diagramType={diagram.diagram_type}
+          diagramType={isSequence ? 'SEQUENCE' : diagram.diagram_type}
           sequenceData={sequenceData}
           nodes={reactFlowNodes}
           edges={reactFlowEdges}
