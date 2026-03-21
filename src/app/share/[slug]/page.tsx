@@ -93,6 +93,15 @@ export default async function SharePage({ params }: PageProps) {
     reactFlowEdges = parsed.edges
   }
 
+  console.log('[share] diagram_type:', diagram.diagram_type)
+  console.log('[share] isApiLens:', isApiLens)
+  console.log('[share] apiLensData:', JSON.stringify(apiLensData))
+  console.log('[share] services count:', (apiLensData as any)?.services?.length)
+  console.log(
+    '[share] connections count:',
+    (apiLensData as any)?.connections?.length
+  )
+
   return (
     <div className="flex h-screen flex-col bg-[var(--color-bg)]">
       <header className="flex h-12 shrink-0 items-center justify-between border-b border-[var(--color-border)] bg-[var(--color-surface)] px-4">
