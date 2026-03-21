@@ -12,7 +12,7 @@ import { createClient } from '@/lib/supabase/client'
 import { saveVersion } from '@/lib/diagram/versions'
 import { generateSequencePreview } from '@/lib/diagram/generatePreviewSvg'
 import { toast } from 'sonner'
-import { Copy, Check, AlertCircle, Eye, Columns, Code2, MessageSquareText, ChevronDown, ChevronUp, Sparkles } from 'lucide-react'
+import { Copy, Check, AlertCircle, Eye, Columns, Code2, MessageSquareText, ChevronDown, ChevronUp, Sparkles, Wand2 } from 'lucide-react'
 
 /* ── PlantUML generator ────────────────────────────────────────── */
 
@@ -346,6 +346,58 @@ export function SequenceEditor({
     }
   }
 
+  async function handleUpdate() {
+    if (!promptText.trim()) return
+    if ((userPlan ?? 'free') === 'free') {
+      setUpgradeModalOpen(true)
+      return
+    }
+    await saveVersion(
+      diagramId,
+      { ...data, title } as Record<string, unknown>,
+      `Before update · ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
+    )
+    setRegenerating(true)
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          diagramType: 'uml_sequence',
+          prompt: promptText.trim(),
+          existingDiagramId: diagramId,
+          existingDiagram: data,
+          updateMode: true,
+        }),
+      })
+      if (res.status === 403) {
+        const payload = await res.json().catch(() => ({}))
+        if (payload?.feature === 'update_diagram_ai') {
+          setUpgradeModalOpen(true)
+        } else {
+          toast.error("You've used all your monthly generations.", {
+            action: { label: 'Upgrade', onClick: () => router.push('/settings') },
+          })
+        }
+        setRegenerating(false)
+        return
+      }
+      const result = await res.json()
+      if (result.flowData) {
+        const parsed = result.flowData as SequenceData
+        const merged = { ...parsed, title }
+        setData(merged)
+        setCodeText(toPlantUML(merged))
+        await persistData(merged)
+        toast.success('Diagram updated')
+      }
+    } catch {
+      toast.error('Update failed. Please try again.')
+    } finally {
+      setRegenerating(false)
+    }
+  }
+
   async function handleRestoreVersion(snapshot: Record<string, unknown>) {
     // Save current state before overwriting
     await saveVersion(diagramId, { ...data, title } as Record<string, unknown>, 'Before restore')
@@ -509,31 +561,65 @@ export function SequenceEditor({
                     {promptText.length} / {MAX_PROMPT_LENGTH}
                   </div>
 
-                  <button
-                    onClick={handleRegenerate}
-                    disabled={!promptText.trim()}
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button
+                      type="button"
+                      title="Create a new diagram from scratch using this prompt"
+                      onClick={handleRegenerate}
+                      disabled={!promptText.trim() || regenerating}
+                      style={{
+                        flex: 1,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        padding: '8px 0', fontSize: 13, fontWeight: 600,
+                        borderRadius: 8, border: 'none', cursor: promptText.trim() && !regenerating ? 'pointer' : 'not-allowed',
+                        background: promptText.trim() && !regenerating
+                          ? 'linear-gradient(135deg, #6366F1, #818CF8)'
+                          : 'var(--color-surface-raised, #27272A)',
+                        color: promptText.trim() && !regenerating ? '#fff' : 'var(--color-text-disabled, #52525B)',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <Sparkles size={14} />
+                      Regenerate
+                    </button>
+                    <button
+                      type="button"
+                      title="Update the existing diagram based on your instruction"
+                      onClick={handleUpdate}
+                      disabled={!promptText.trim() || regenerating}
+                      style={{
+                        flex: 1,
+                        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                        padding: '8px 0', fontSize: 13, fontWeight: 600,
+                        borderRadius: 8, border: 'none', cursor: promptText.trim() && !regenerating ? 'pointer' : 'not-allowed',
+                        background: promptText.trim() && !regenerating
+                          ? 'linear-gradient(135deg, #6366F1, #818CF8)'
+                          : 'var(--color-surface-raised, #27272A)',
+                        color: promptText.trim() && !regenerating ? '#fff' : 'var(--color-text-disabled, #52525B)',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <Wand2 size={14} />
+                      Update
+                    </button>
+                  </div>
+
+                  <div
                     style={{
-                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                      width: '100%', padding: '8px 0', fontSize: 13, fontWeight: 600,
-                      borderRadius: 8, border: 'none', cursor: promptText.trim() ? 'pointer' : 'not-allowed',
-                      background: promptText.trim()
-                        ? 'linear-gradient(135deg, #6366F1, #818CF8)'
-                        : 'var(--color-surface-raised, #27272A)',
-                      color: promptText.trim() ? '#fff' : 'var(--color-text-disabled, #52525B)',
-                      transition: 'all 0.15s',
+                      display: 'flex',
+                      gap: 8,
+                      fontSize: 10,
+                      color: '#52525b',
+                      marginTop: 4,
                     }}
                   >
-                    <Sparkles size={14} />
-                    Regenerate
-                  </button>
-
-                  <p style={{
-                    fontSize: 10, lineHeight: 1.5,
-                    color: 'var(--color-text-tertiary, #52525B)', margin: 0,
-                  }}>
-                    This will create a new diagram with the updated prompt.
-                    Your current diagram will be preserved.
-                  </p>
+                    <span style={{ flex: 1, textAlign: 'center' }}>
+                      Creates new diagram from scratch
+                    </span>
+                    <span style={{ flex: 1, textAlign: 'center' }}>
+                      Adds to existing diagram
+                    </span>
+                  </div>
                 </div>
               )}
             </div>

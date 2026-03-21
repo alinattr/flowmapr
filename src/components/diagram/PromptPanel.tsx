@@ -196,6 +196,7 @@ export function PromptPanel({
                 className="flex-1 gap-2"
                 disabled={!prompt.trim() || loading}
                 onClick={handleRegenerateClick}
+                title="Create a new diagram from scratch using this prompt"
               >
                 <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
                 Regenerate
@@ -206,16 +207,29 @@ export function PromptPanel({
                 className="flex-1 gap-2"
                 disabled={!prompt.trim() || loading}
                 onClick={handleUpdate}
+                title="Update the existing diagram based on your instruction"
               >
                 <Wand2 className="h-3.5 w-3.5" strokeWidth={1.5} />
                 Update
               </Button>
             </div>
 
-            <p className="text-[10px] leading-relaxed text-[var(--color-text-tertiary)]">
-              Regenerate replaces the diagram from your prompt. Update keeps the current diagram
-              and applies incremental changes (Basic+).
-            </p>
+            <div
+              style={{
+                display: 'flex',
+                gap: 8,
+                fontSize: 10,
+                color: '#52525b',
+                marginTop: 4,
+              }}
+            >
+              <span style={{ flex: 1, textAlign: 'center' }}>
+                Creates new diagram from scratch
+              </span>
+              <span style={{ flex: 1, textAlign: 'center' }}>
+                Adds to existing diagram
+              </span>
+            </div>
           </div>
         )}
       </div>
