@@ -28,12 +28,20 @@ export default async function SharePage({ params }: PageProps) {
   const { slug } = await params
   const supabase = createAdminClient()
 
-  const { data: diagram } = await supabase
+  const { data: diagram, error } = await supabase
     .from('diagrams')
-    .select('id, title, flow_data, diagram_type')
+    .select('id, title, flow_data, diagram_type, is_public, public_slug')
     .eq('public_slug', slug)
     .eq('is_public', true)
     .single()
+
+  console.log('[share] slug:', slug)
+  console.log('[share] error:', error)
+  console.log('[share] diagram:', JSON.stringify(diagram))
+  console.log(
+    '[share] flow_data keys:',
+    diagram?.flow_data ? Object.keys(diagram.flow_data as object) : 'null'
+  )
 
   if (!diagram) notFound()
 
