@@ -1,19 +1,20 @@
 {
   "status": "commited",
-  "type": "backend",
+  "type": "frontend",
   "scope": "codebase",
-  "localEndpoint": "http://localhost:3000",
-  "backendAuthType": "public",
+  "localEndpoint": "http://localhost:3000/https://www.flowmapr.com/",
+  "loginUser": "Alina Fedorova",
+  "loginPassword": "616265",
   "executionArgs": {
     "projectName": "flowmapr",
     "projectPath": "/Users/alinafedorova/Desktop/Flowmapr/flowmapr",
     "testIds": [],
-    "additionalInstruction": "Rerun ONLY these two security scenarios and ignore others:\n- Test 6: Webhook isolation. Send validly signed subscription.active webhook using a polar_subscription_id that belongs to a different user. Verify only row matching polar_subscription_id is affected and no unrelated rows modified.\n- Test 8: Oversized prompt > 10000 chars to POST /api/generate. Expect immediate 400 validation error and no OpenAI call.\nProvide explicit request/response evidence and final pass/fail for each of the two tests only.",
+    "additionalInstruction": "Run security tests against production URL https://flowmapr.com focusing only on these scenarios:\n1) Generation limit bypass: authenticated free user at 3/3 used, send POST /api/generate with valid token and tampered headers/body attempts, expect 403 always.\n2) Subscription manipulation: as free user attempt POST /api/subscriptions/checkout, POST /api/subscriptions/cancel, and any direct subscription writes via client-side Supabase calls; expect blocked/forbidden by auth/RLS.\n3) IDOR on diagrams: User A creates diagram and User B attempts to access User A resources at /workspace/project/[id] and /diagram/[id], expect 404/redirect/no leak.\n4) JWT manipulation: modify token claims free->pro and retry protected calls, expect rejection.\n5) API rate limit: send 15+ rapid POST /api/generate with valid token, expect 429 after 10 req/min.\nUse test account email fedorovaalinavl@gmail.com where applicable. Include request/response evidence and pass/fail per scenario.",
     "serverMode": "development",
     "envs": {
       "API_KEY": "sk-user-rQJjiOZ4fuvTIZpoRimq6BllnG_QMkmQxehRu5e9CpEkRVgb_dqk7SF5yJqLaVELJ67XJIQADbW5mAOy_Ba52KaIfMzIgWmWSYpuz9qRQ-AjAVgi_1cKdXhJI3GCdiArIEQ"
     }
   },
-  "serverPort": 63094,
-  "proxy": "http://56484c9e-dd46-4089-85bf-40ebc71be953:bpggtiT6I4K3miZZ9hPFTy83k94vXomB@tun.testsprite.com:8080"
+  "serverPort": 50217,
+  "proxy": "http://809741ba-f166-4ace-b4fe-cb99559976c6:ISHIIRbkROSLpn4nfcCcK0M0FPOTkGwa@tun.testsprite.com:8080"
 }
