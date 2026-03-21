@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { AppSidebar } from '@/components/shared/AppSidebar'
 import { FeatureUpgradeModal } from '@/components/shared/FeatureUpgradeModal'
@@ -95,6 +96,7 @@ export function WorkspaceShell({
   diagrams: initialDiagrams,
   needsOnboarding = false,
 }: WorkspaceShellProps) {
+  const router = useRouter()
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
@@ -616,11 +618,15 @@ export function WorkspaceShell({
   // ── Empty state content ──────────────────────────────────────────────────
   function EmptyState() {
     const handleEmptyStateCta = () => {
-      if (activeTab === 'api_lens' && plan === 'free') {
-        setUpgradeModalOpen(true)
-        return
+      if (activeTab === 'api_lens') {
+        if (plan === 'free') {
+          setUpgradeModalOpen(true)
+        } else {
+          router.push('/workspace/api-lens')
+        }
+      } else {
+        setGenerateOpen(true)
       }
-      setGenerateOpen(true)
     }
 
     if (search.trim()) return (

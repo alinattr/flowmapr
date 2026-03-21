@@ -264,7 +264,7 @@ export function ApiLensEditor({
                 onChange={e => setSpecText(e.target.value)}
                 maxLength={MAX_API_LENS_INPUT_LENGTH}
                 disabled={analysing}
-                placeholder={`Paste OpenAPI spec or describe your API:\n\nPOST /auth/login — authenticate user\nGET /users/me — get current user\nPOST /orders — create order\n...\n\nor paste full YAML/JSON spec`}
+                placeholder={`Paste your OpenAPI/Swagger spec here, or describe your API endpoints:\n\ne.g. POST /auth/login — authenticate user\nGET /users/me — get current user profile  \nPOST /courses/enroll — enroll in a course\nGET /courses/{id}/progress — get course progress\nDELETE /users/{id} — delete user account`}
                 style={{
                   flex: 1,
                   resize: 'none',

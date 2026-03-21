@@ -31,8 +31,8 @@ const PLACEHOLDERS: Record<string, string> = {
   uml_sequence: 'e.g. Food delivery app: Customer searches restaurants and selects items. Mobile App sends order to Order Service. Order Service requests payment from Payment Service. Payment confirmed, Restaurant notified. Restaurant prepares order. Delivery Service picks up and delivers to Customer.',
   erd: 'e.g. E-commerce database: Users table with id, email, name, created_at. Orders table with id, user_id (FK), total, status, created_at. Products table with id, name, price, stock, category_id. Order_Items table with id, order_id (FK), product_id (FK), quantity, price. Categories table with id, name, parent_id.',
   flowchart: 'e.g. Password reset flow: User enters email. Check if email exists — if not, show error. Send reset link. User clicks link. Check if link expired — if yes, request new link. User enters new password. Save password. End.',
-  c4_l1: 'e.g. Fintech wallet system (Tambadana): Client uses Mobile App to top up wallet via FPX banking, pay QR merchants, transfer funds from credit line, and view transaction history. Mobile App connects to Backend Service which integrates with Fasspay API Wallet and stores data in PostgreSQL.',
-  c4_l2: 'e.g. Tambadana wallet containers: Mobile App (React Native) → API Gateway → Auth Service, Wallet Service, Payment Service, Transaction Service. Wallet Service → PostgreSQL. Payment Service → Fasspay API (external). All services → Redis cache.',
+  c4_l1: 'e.g. Online learning platform: Students use Web App to browse courses, enroll, and track progress. Web App connects to Backend API which integrates with Payment Provider for subscriptions and stores data in PostgreSQL database.',
+  c4_l2: 'e.g. Learning platform containers: Web App (Next.js) → API Gateway → Auth Service, Course Service, Progress Service, Notification Service. Course Service → PostgreSQL. Notification Service → Email Provider (external). All services → Redis cache.',
 }
 
 export function GenerateDialog({ open, onOpenChange }: GenerateDialogProps) {

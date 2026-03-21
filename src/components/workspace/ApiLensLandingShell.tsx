@@ -149,7 +149,7 @@ export function ApiLensLandingShell({
                 value={spec}
                 onChange={e => setSpec(e.target.value)}
                 maxLength={MAX_API_LENS_INPUT_LENGTH}
-                placeholder={`Paste your OpenAPI/Swagger spec here, or describe your API endpoints:\n\ne.g. POST /auth/login — authenticate user\nGET /users/me — get current user profile\nPOST /payment/init — initialize payment\nGET /wallet/balance — get wallet balance\nDELETE /users/{id} — delete user account`}
+                placeholder={`Paste your OpenAPI/Swagger spec here, or describe your API endpoints:\n\ne.g. POST /auth/login — authenticate user\nGET /users/me — get current user profile  \nPOST /courses/enroll — enroll in a course\nGET /courses/{id}/progress — get course progress\nDELETE /users/{id} — delete user account`}
                 style={{
                   width: '100%',
                   minHeight: 360,

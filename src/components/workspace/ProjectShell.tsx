@@ -15,6 +15,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { AppSidebar } from '@/components/shared/AppSidebar'
 import { FeatureUpgradeModal } from '@/components/shared/FeatureUpgradeModal'
@@ -118,6 +119,7 @@ export function ProjectShell({
   diagrams: initialDiagrams,
   needsOnboarding = false,
 }: ProjectShellProps) {
+  const router = useRouter()
   const { theme } = useTheme()
   const isDark = theme === 'dark'
 
@@ -742,11 +744,15 @@ export function ProjectShell({
   // ── Empty state ────────────────────────────────────────────────────────────
   function EmptyState() {
     const handleEmptyStateCta = () => {
-      if (activeTab === 'api_lens' && plan === 'free') {
-        setUpgradeModalOpen(true)
-        return
+      if (activeTab === 'api_lens') {
+        if (plan === 'free') {
+          setUpgradeModalOpen(true)
+        } else {
+          router.push('/workspace/api-lens')
+        }
+      } else {
+        setGenerateOpen(true)
       }
-      setGenerateOpen(true)
     }
 
     const isSearch = search.trim().length > 0
@@ -787,7 +793,7 @@ export function ProjectShell({
             ) : (
               <button onClick={handleEmptyStateCta} className="mt-6" style={{ padding: '9px 20px', borderRadius: 10, background: 'linear-gradient(135deg,#6366F1,#8B5CF6)', color: 'white', fontSize: 13, fontWeight: 600, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 8, fontFamily: 'Inter, sans-serif' }}>
                 <Sparkles size={14} strokeWidth={1.5} />
-                Generate a diagram
+                {activeTab === 'api_lens' ? 'Open API Lens' : 'Generate a diagram'}
               </button>
             )
           )}
