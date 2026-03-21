@@ -622,8 +622,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: validation.error }, { status: 400 })
   }
 
+  const bodyRecord = body as Record<string, unknown>
   const { diagramType } = body as { diagramType: string }
   const rawPrompt = (body as { prompt?: unknown }).prompt
+  const updateMode = bodyRecord.updateMode === true
+  const existingDiagram = bodyRecord.existingDiagram
 
   if (typeof rawPrompt !== 'string') {
     return NextResponse.json({ error: 'invalid_prompt' }, { status: 400 })
@@ -642,9 +645,16 @@ export async function POST(request: Request) {
   // Optional: when set, update this diagram in-place instead of creating a new one.
   // Used by the editor's Regenerate button so version history stays on the same diagram.
   const existingDiagramId =
-    typeof (body as Record<string, unknown>).existingDiagramId === 'string'
-      ? ((body as Record<string, unknown>).existingDiagramId as string)
+    typeof bodyRecord.existingDiagramId === 'string'
+      ? (bodyRecord.existingDiagramId as string)
       : null
+
+  if (updateMode && !existingDiagramId) {
+    return NextResponse.json(
+      { error: 'existingDiagramId is required when updateMode is true.' },
+      { status: 400 }
+    )
+  }
   // Optional: project to assign the new diagram to. Falls back to user's default project.
   const requestedProjectId =
     typeof (body as Record<string, unknown>).projectId === 'string'
@@ -658,7 +668,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'feature_not_available', feature: 'api_lens' }, { status: 403 })
     }
   }
-  if (existingDiagramId) {
+  if (existingDiagramId || updateMode) {
     const allowed = await hasFeature(user.id, 'update_diagram_ai')
     if (!allowed) {
       return NextResponse.json({ error: 'feature_not_available', feature: 'update_diagram_ai' }, { status: 403 })
@@ -703,6 +713,23 @@ export async function POST(request: Request) {
   let flowData: Record<string, unknown>
   let tokensUsed: number | null = null
 
+  const userMessageContent =
+    updateMode &&
+    existingDiagram !== undefined &&
+    existingDiagram !== null &&
+    typeof existingDiagram === 'object'
+      ? `Current diagram (preserve unless asked to change):
+${JSON.stringify(existingDiagram)}
+
+User instruction: ${prompt}
+
+Rules:
+- Keep all existing nodes, edges, swimlanes unless explicitly told to change them
+- Only add/modify/remove what the instruction specifies
+- Preserve node IDs where possible
+- Return complete updated diagram in the same format`
+      : `Process description: ${prompt}`
+
   try {
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
@@ -716,7 +743,7 @@ export async function POST(request: Request) {
         },
         {
           role: 'user',
-          content: `Process description: ${prompt}`,
+          content: userMessageContent,
         },
       ],
     })
@@ -850,7 +877,9 @@ export async function POST(request: Request) {
       diagram_id: existingDiagramId,
       user_id: user.id,
       snapshot: { ...flowData, diagramType },
-      label: `Regenerated · ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
+      label: updateMode
+        ? `Updated with AI · ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`
+        : `Regenerated · ${new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}`,
     })
 
   } else {

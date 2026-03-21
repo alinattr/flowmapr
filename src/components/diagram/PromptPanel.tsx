@@ -9,13 +9,21 @@ import {
   ChevronDown,
   ChevronUp,
   Sparkles,
+  Wand2,
 } from 'lucide-react'
 import { DIAGRAM_TYPES, normalizeType, type DiagramTypeValue } from '@/lib/diagram-types'
+import { FeatureUpgradeModal } from '@/components/shared/FeatureUpgradeModal'
+import { toast } from 'sonner'
+import type { Node, Edge } from '@xyflow/react'
 
 interface PromptPanelProps {
   initialPrompt: string
   diagramType: string
-  onRegenerate: (prompt: string, diagramType: string) => void
+  onRegenerate: (prompt: string, diagramType: string) => void | Promise<void>
+  diagramId: string
+  flowData: { nodes: Node[]; edges: Edge[] }
+  userPlan?: string
+  onDiagramUpdate: (flowData: unknown) => void
 }
 
 const MAX_PROMPT_LENGTH = 2000
@@ -24,10 +32,85 @@ export function PromptPanel({
   initialPrompt,
   diagramType: initialType,
   onRegenerate,
+  diagramId,
+  flowData,
+  userPlan = 'free',
+  onDiagramUpdate,
 }: PromptPanelProps) {
   const [open, setOpen] = useState(false)
   const [prompt, setPrompt] = useState(initialPrompt)
   const [type, setType] = useState<DiagramTypeValue>(normalizeType(initialType))
+  const [loading, setLoading] = useState(false)
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false)
+
+  const handleRegenerateClick = async () => {
+    if (!prompt.trim()) return
+    setLoading(true)
+    try {
+      await onRegenerate(prompt.trim(), type)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleUpdate = async () => {
+    if (!prompt.trim()) return
+    if (userPlan === 'free') {
+      setUpgradeModalOpen(true)
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch('/api/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          diagramType: type,
+          existingDiagram: flowData,
+          updateMode: true,
+          existingDiagramId: diagramId,
+        }),
+      })
+      const data = (await res.json()) as {
+        flowData?: unknown
+        error?: string
+        feature?: string
+      }
+
+      if (res.status === 403) {
+        if (data?.feature === 'update_diagram_ai') {
+          setUpgradeModalOpen(true)
+        } else {
+          toast.error(
+            "You've used all your monthly generations. Upgrade to keep going.",
+            {
+              action: {
+                label: 'Upgrade',
+                onClick: () => {
+                  window.location.href = '/settings#billing'
+                },
+              },
+            }
+          )
+        }
+        return
+      }
+
+      if (!res.ok) {
+        throw new Error(data?.error ?? 'Update failed')
+      }
+
+      if (data.flowData) {
+        onDiagramUpdate(data.flowData)
+        toast.success('Diagram updated')
+      }
+    } catch {
+      toast.error('Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return (
     <div className="absolute bottom-4 left-4 z-10 w-80">
@@ -107,23 +190,42 @@ export function PromptPanel({
               {prompt.length} / {MAX_PROMPT_LENGTH}
             </div>
 
-            <Button
-              size="sm"
-              className="w-full gap-2"
-              disabled={!prompt.trim()}
-              onClick={() => onRegenerate(prompt.trim(), type)}
-            >
-              <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
-              Regenerate
-            </Button>
+            <div className="flex w-full gap-2">
+              <Button
+                size="sm"
+                className="flex-1 gap-2"
+                disabled={!prompt.trim() || loading}
+                onClick={handleRegenerateClick}
+              >
+                <Sparkles className="h-3.5 w-3.5" strokeWidth={1.5} />
+                Regenerate
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                className="flex-1 gap-2"
+                disabled={!prompt.trim() || loading}
+                onClick={handleUpdate}
+              >
+                <Wand2 className="h-3.5 w-3.5" strokeWidth={1.5} />
+                Update
+              </Button>
+            </div>
 
             <p className="text-[10px] leading-relaxed text-[var(--color-text-tertiary)]">
-              This will create a new diagram with the updated prompt.
-              Your current diagram will be preserved.
+              Regenerate replaces the diagram from your prompt. Update keeps the current diagram
+              and applies incremental changes (Basic+).
             </p>
           </div>
         )}
       </div>
+
+      <FeatureUpgradeModal
+        open={upgradeModalOpen}
+        onOpenChange={setUpgradeModalOpen}
+        featureName="Update Diagram with AI"
+        requiredPlan="basic"
+      />
     </div>
   )
 }

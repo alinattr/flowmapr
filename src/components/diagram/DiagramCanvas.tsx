@@ -497,6 +497,27 @@ function DiagramCanvasInner({
               initialPrompt={initialPrompt ?? ''}
               diagramType={diagramType}
               onRegenerate={handleRegenerate}
+              diagramId={diagramId}
+              flowData={{ nodes, edges }}
+              userPlan={userPlan}
+              onDiagramUpdate={(fd) => {
+                const rawFlow = fd as { nodes?: unknown[]; edges?: unknown[] }
+                const normalizedRawFlow =
+                  diagramType === 'bpmn'
+                    ? {
+                        nodes: fixBpmnLayout(
+                          (rawFlow.nodes ?? []) as Parameters<typeof fixBpmnLayout>[0]
+                        ),
+                        edges: rawFlow.edges ?? [],
+                      }
+                    : rawFlow
+                const { nodes: newNodes, edges: newEdges } = parseFlowData(
+                  normalizedRawFlow as Parameters<typeof parseFlowData>[0]
+                )
+                setNodes(newNodes)
+                setEdges(newEdges)
+                debouncedSave()
+              }}
             />
 
             {diagramType === 'uml_class' &&
