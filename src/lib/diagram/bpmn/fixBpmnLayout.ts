@@ -168,5 +168,95 @@ export function fixBpmnLayout(nodes: BpmnNode[]): BpmnNode[] {
     }
   }
 
+  // ── Wrap pass: snake-layout lanes with more than MAX_NODES_PER_ROW nodes ──
+  const MAX_NODES_PER_ROW = 5
+  const WRAP_ROW_H = 200
+  const WRAP_COL_W = 260
+  const WRAP_START_X = 130
+
+  if (lanes.length > 0) {
+    // Build lane_id → nodes map using the same lane_id data field checked above
+    const nodesByLane = new Map<string, BpmnNode[]>()
+    for (const node of content) {
+      const laneId =
+        typeof node.data?.lane_id === 'string'
+          ? (node.data.lane_id as string)
+          : typeof node.data?.laneId === 'string'
+            ? (node.data.laneId as string)
+            : null
+      if (!laneId) continue
+      if (!nodesByLane.has(laneId)) nodesByLane.set(laneId, [])
+      nodesByLane.get(laneId)!.push(node)
+    }
+
+    let anyLaneWrapped = false
+
+    for (const [laneId, laneNodes] of nodesByLane) {
+      if (laneNodes.length <= MAX_NODES_PER_ROW) continue
+
+      const laneNode = result.find(n => n.id === laneId)
+      if (!laneNode) continue
+
+      anyLaneWrapped = true
+
+      // Sort by current x so the existing left-to-right order is preserved
+      laneNodes.sort((a, b) => a.position.x - b.position.x)
+
+      const laneBaseY = laneNode.position.y
+      const rows = Math.ceil(laneNodes.length / MAX_NODES_PER_ROW)
+      const newLaneH = rows * WRAP_ROW_H + 40
+
+      // Re-position each node in snake order
+      laneNodes.forEach((node, index) => {
+        const row = Math.floor(index / MAX_NODES_PER_ROW)
+        const col = index % MAX_NODES_PER_ROW
+        const { h } = nodeSize(node.type)
+        node.position = {
+          x: WRAP_START_X + col * WRAP_COL_W,
+          y: laneBaseY + row * WRAP_ROW_H + Math.round((WRAP_ROW_H - h) / 2),
+        }
+      })
+
+      // Expand the lane to fit the new rows
+      laneNode.style = { ...(laneNode.style ?? {}), height: newLaneH }
+      laneNode.data = { ...laneNode.data, height: newLaneH }
+    }
+
+    // After wrapping, recompute lane y positions (heights may have changed) and pool height
+    if (anyLaneWrapped) {
+      const poolNode = result.find(n => n.type === 'bpmnPool')
+      const poolY = poolNode?.position.y ?? 20
+
+      let cursorY = poolY + POOL_TITLE_H
+      for (const lane of lanes) {
+        lane.position.y = cursorY
+        const lh = (lane.data.height as number) ?? LANE_H
+        cursorY += lh
+      }
+
+      if (poolNode) {
+        const totalLaneH = lanes.reduce(
+          (sum, lane) => sum + ((lane.data.height as number) ?? LANE_H),
+          0,
+        )
+        const newPoolH = POOL_TITLE_H + totalLaneH
+        poolNode.data = { ...poolNode.data, height: newPoolH }
+        poolNode.style = { ...(poolNode.style ?? {}), height: newPoolH }
+
+        // Also ensure pool width covers the wrap columns
+        const wrapWidth = WRAP_START_X + MAX_NODES_PER_ROW * WRAP_COL_W + RIGHT_PADDING
+        const currentPoolW = (poolNode.data.width as number) ?? 0
+        if (wrapWidth > currentPoolW) {
+          poolNode.data = { ...poolNode.data, width: wrapWidth }
+          poolNode.style = { ...(poolNode.style ?? {}), width: wrapWidth }
+          const laneW = wrapWidth - POOL_LABEL_W
+          for (const lane of lanes) {
+            lane.data = { ...lane.data, width: laneW }
+          }
+        }
+      }
+    }
+  }
+
   return result
 }

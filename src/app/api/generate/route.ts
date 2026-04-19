@@ -29,22 +29,33 @@ NODE TYPES — use exactly these:
 - bpmnPool: exactly one, wraps everything. data: { label, width, height }
 - bpmnLane: horizontal swimlane inside pool. data: { label, width, height }
 - bpmnStartEvent: exactly one. The trigger event.
-- bpmnEndEvent: one per distinct termination.
+- bpmnEndEvent: one per process (see End Event rules below).
 - bpmnTask: a work activity. Label = verb + noun.
 - bpmnGateway: decision or merge. data.gatewayType: "xor" or "parallel".
 
+CRITICAL — GATEWAY LABELS:
+- Gateway node label = decision question ONLY, max 3 words (e.g. "Score OK?", "Approved?").
+- Edge labels = outcomes ONLY (Yes/No, Approved/Rejected, Pass/Fail).
+- NEVER put Yes/No/outcome text on the gateway node itself — only on its outgoing edges.
+
+END EVENT RULES:
+- PREFER exactly one End Event per process.
+- Only add a second End Event if two paths NEVER converge and terminate completely separately.
+- Rejection/error paths should funnel into the SAME End Event as the happy path where possible.
+- Maximum 2 End Events for any process regardless of complexity.
+
 RENDERED NODE SIZES (hardcoded in the UI):
-- bpmnTask: 160px wide, 56px tall
-- bpmnGateway: 52px wide, 52px tall
-- bpmnStartEvent: 44px wide, 44px tall
-- bpmnEndEvent: 44px wide, 44px tall
+- bpmnTask: 160px wide, 60px tall
+- bpmnGateway: 50px wide, 50px tall
+- bpmnStartEvent: 36px wide, 36px tall
+- bpmnEndEvent: 36px wide, 36px tall
 - bpmnPool: left label bar = 36px, top title bar = 32px
-- bpmnLane: left label strip = 32px
+- bpmnLane: left label strip = 52px
 
 COORDINATE SYSTEM — all positions are ABSOLUTE on the canvas:
 - Pool: x=20, y=20
 - Lanes: x=56 (pool_x + 36), stacked vertically
-- Content nodes: x >= 120 (56 + 32 + padding)
+- Content nodes: x >= 130 (56 + 52 + padding)
 
 SWIMLANE DETECTION:
 Use swimlanes when 2+ distinct roles/actors/systems are mentioned.
@@ -52,35 +63,52 @@ If only one implicit actor, use a plain pool with no lanes.
 
 LAYOUT WITH SWIMLANES (strict rules):
 
-1. Lane height = 140px each (enough for one row of nodes).
-2. Lane y positions:
+1. Lane height = 180px minimum per lane (one row of nodes with breathing room).
+   For lanes with wrapped rows: lane height = number_of_rows × 180px.
+2. Lane y positions (using 180px lane height):
    - Lane 0: y = 52  (pool_y 20 + title bar 32)
-   - Lane 1: y = 192 (52 + 140)
-   - Lane 2: y = 332 (52 + 280)
-   - Lane N: y = 52 + (N * 140)
+   - Lane 1: y = 232 (52 + 180)
+   - Lane 2: y = 412 (52 + 360)
+   - Lane N: y = 52 + (N * 180)
 3. Lane width = pool_width - 36
-4. Pool width = (number_of_columns * 190) + 180
-5. Pool height = (number_of_lanes * 140) + 32
+4. Pool width = (number_of_columns * 260) + 200
+5. Pool height = sum of all lane heights + 32
 
 NODE POSITIONS INSIDE LANES — column-based grid:
 - Column 0: x = 130
-- Column 1: x = 320
-- Column 2: x = 510
-- Column 3: x = 700
-- Column 4: x = 890
-- Column N: x = 130 + (N * 190)
-- Center vertically in lane: node_y = lane_y + 42 (for tasks/gateways)
-- For start/end events: node_y = lane_y + 48
+- Column 1: x = 390
+- Column 2: x = 650
+- Column 3: x = 910
+- Column 4: x = 1170
+- Column N: x = 130 + (N * 260)
+- Minimum 260px horizontal distance between any two nodes in the same row.
+- Center vertically in lane row: node_y = lane_y + (row_height - node_height) / 2
+  - Tasks (60px tall) in 180px lane: node_y = lane_y + 60
+  - Gateways (50px tall): node_y = lane_y + 65
+  - Events (36px tall): node_y = lane_y + 72
+
+WRAPPING RULE — for lanes with more than 5 sequential steps:
+- Row 1: columns 0–4 (x = 130 to 1170), node_y = lane_y + 60
+- Row 2: columns 0–4 (x = 130 to 1170), node_y = lane_y + 240
+- Increase lane height to rows × 180px to accommodate.
+- Connect the last node of row 1 to the first node of row 2 with a normal sequence edge.
+- Pool width is determined by the widest row (max 5 columns = (5 × 260) + 200 = 1500px).
 
 Process flows LEFT to RIGHT. Each sequential step increments the column.
+Each lane's flow must be logically sequential left-to-right with no backtracking.
 Cross-lane edges connect nodes in different lanes (handoffs between roles).
 A node belongs to the lane of its responsible role — place it at that lane's y.
 
+CRITICAL: Every task, gateway, and event node MUST include "lane_id" in its data field.
+The lane_id value must exactly match the "id" of the bpmnLane node it belongs to.
+Example: if lane node has id "lane_customer", then all nodes in that lane must have data.lane_id: "lane_customer".
+fixBpmnLayout uses lane_id to correctly position nodes within their swimlane.
+
 LAYOUT WITHOUT SWIMLANES:
-- Pool: x=20, y=20, width = (columns * 190) + 160, height = max_y + 140
-- Happy path: y=100, x starts at 100, increments by 190
-- Exception branches from gateways: y=260 (first), y=420 (second)
-- Gateway "Yes/success" goes right (same y), "No/failure" goes down (+160 y)
+- Pool: x=20, y=20, width = (columns * 260) + 200, height = max_y + 160
+- Happy path: y=120, x starts at 130, increments by 260
+- Exception branches from gateways: y=300 (first), y=480 (second)
+- Gateway "Yes/success" goes right (same y), "No/failure" goes down (+180 y)
 
 EDGE RULES:
 - Every edge leaving a gateway MUST have a label (Yes/No, Approved/Rejected, etc.)
@@ -95,10 +123,10 @@ OUTPUT FORMAT:
   "hasSwimlanes": true|false,
   "nodes": [
     { "id": "pool", "type": "bpmnPool", "position": { "x": 20, "y": 20 }, "data": { "label": "Process Name", "width": NUMBER, "height": NUMBER } },
-    { "id": "lane_0", "type": "bpmnLane", "position": { "x": 56, "y": 52 }, "data": { "label": "Role", "width": NUMBER, "height": 140 } },
-    { "id": "start", "type": "bpmnStartEvent", "position": { "x": 130, "y": 100 }, "data": { "label": "Start" } },
-    { "id": "t1", "type": "bpmnTask", "position": { "x": 320, "y": 94 }, "data": { "label": "Do Something" } },
-    { "id": "gw1", "type": "bpmnGateway", "position": { "x": 510, "y": 94 }, "data": { "label": "Check?", "gatewayType": "xor" } }
+    { "id": "lane_0", "type": "bpmnLane", "position": { "x": 56, "y": 52 }, "data": { "label": "Role", "width": NUMBER, "height": 180 } },
+    { "id": "start", "type": "bpmnStartEvent", "position": { "x": 130, "y": 124 }, "data": { "label": "Start", "lane_id": "lane_0" } },
+    { "id": "t1", "type": "bpmnTask", "position": { "x": 390, "y": 112 }, "data": { "label": "Do Something", "lane_id": "lane_0" } },
+    { "id": "gw1", "type": "bpmnGateway", "position": { "x": 650, "y": 117 }, "data": { "label": "Approved?", "gatewayType": "xor", "lane_id": "lane_0" } }
   ],
   "edges": [
     { "id": "e1", "source": "start", "target": "t1" },
@@ -109,13 +137,18 @@ OUTPUT FORMAT:
 }
 
 QUALITY CHECKLIST:
-- Exactly one bpmnStartEvent, at least one bpmnEndEvent
-- Every gateway has 2+ outgoing labeled edges
-- No two nodes at the same position — minimum 130px horizontal gap, 80px vertical gap
-- Pool width and height fully contain all nodes with 40px padding
-- If swimlanes: every node's y is within its lane's y range (lane_y to lane_y + 140)
+- Exactly one bpmnStartEvent
+- Prefer one bpmnEndEvent; maximum two End Events total — never more
+- Every gateway has 2+ outgoing labeled edges with outcome text (Yes/No etc.) on the EDGE only
+- No two nodes at the same position — minimum 260px horizontal gap, 100px vertical gap
+- Pool width and height fully contain all nodes with 40px padding on all sides
+- If swimlanes: every node's y is within its lane's y range (lane_y to lane_y + lane_height)
+- Every content node (task, gateway, event) has data.lane_id matching its parent lane's id
 - Every node is connected — no orphans
 - Lane widths all equal pool_width - 36
+- Lane heights are at minimum 180px; multi-row lanes use rows × 180px
+- Rejection/error paths must end with a shared End Event where possible — never route rejection back through other lanes
+- Each lane's flow must be logically sequential left-to-right with no backtracking
 
 Now generate a BPMN diagram for the following process.`
 

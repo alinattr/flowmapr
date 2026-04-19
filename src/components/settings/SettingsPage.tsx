@@ -144,7 +144,10 @@ export function SettingsPage({
     if (error) {
       toast.error('Failed to update profile')
     } else {
+      // Sync auth metadata so all pages read the new name
+      await supabase.auth.updateUser({ data: { full_name: fullName } })
       toast.success('Profile updated')
+      router.refresh() // Re-run server components to pick up new name
     }
 
     setSaving(false)

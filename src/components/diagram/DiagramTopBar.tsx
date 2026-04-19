@@ -46,6 +46,7 @@ import {
 import type { Node, Edge } from '@xyflow/react'
 import { generatePlantUML } from '@/lib/uml/plantuml'
 import { ThemeToggle } from '@/components/ui/ThemeToggle'
+import { useTheme } from '@/lib/theme/ThemeProvider'
 import { FeatureUpgradeModal } from '@/components/shared/FeatureUpgradeModal'
 
 interface DiagramTopBarProps {
@@ -82,6 +83,8 @@ export function DiagramTopBar({
   onHistoryOpen,
 }: DiagramTopBarProps) {
   const router = useRouter()
+  const { theme } = useTheme()
+  const exportBg = theme === 'dark' ? '#0D0D10' : '#ffffff'
   const [editing, setEditing] = useState(false)
   const [editValue, setEditValue] = useState(title)
   const [shareOpen, setShareOpen] = useState(false)
@@ -157,7 +160,7 @@ export function DiagramTopBar({
     if (!target) { toast.error('Nothing to export'); return }
     try {
       const dataUrl = await toPng(target, {
-        backgroundColor: '#ffffff',
+        backgroundColor: exportBg,
         pixelRatio: 2,
       })
       const link = document.createElement('a')
@@ -175,7 +178,7 @@ export function DiagramTopBar({
     if (!target) { toast.error('Nothing to export'); return }
     try {
       const dataUrl = await toPng(target, {
-        backgroundColor: '#ffffff',
+        backgroundColor: exportBg,
         pixelRatio: 2,
       })
       const img = new Image()
@@ -198,7 +201,7 @@ export function DiagramTopBar({
     const target = getExportTarget()
     if (!target) return null
     try {
-      return await toPng(target, { backgroundColor: '#ffffff', pixelRatio: 2 })
+      return await toPng(target, { backgroundColor: exportBg, pixelRatio: 2 })
     } catch {
       return null
     }

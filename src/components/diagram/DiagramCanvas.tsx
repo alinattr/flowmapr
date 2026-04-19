@@ -361,11 +361,14 @@ function DiagramCanvasInner({
     await saveVersion(diagramId, { nodes, edges, diagramType, title }, 'Before restore')
 
     const restoredNodesRaw = Array.isArray(snapshot.nodes) ? snapshot.nodes as typeof nodes : nodes
+    const restoredEdges = Array.isArray(snapshot.edges) ? snapshot.edges as typeof edges : edges
     const restoredNodes =
       diagramType === 'bpmn'
-        ? (fixBpmnLayout(restoredNodesRaw as Parameters<typeof fixBpmnLayout>[0]) as typeof nodes)
+        ? (parseFlowData({
+            nodes: fixBpmnLayout(restoredNodesRaw as Parameters<typeof fixBpmnLayout>[0]) as Parameters<typeof parseFlowData>[0]['nodes'],
+            edges: restoredEdges as Parameters<typeof parseFlowData>[0]['edges'],
+          }).nodes as typeof nodes)
         : restoredNodesRaw
-    const restoredEdges = Array.isArray(snapshot.edges) ? snapshot.edges as typeof edges : edges
     setNodes(restoredNodes)
     setEdges(restoredEdges)
 
@@ -466,6 +469,8 @@ function DiagramCanvasInner({
               fitViewOptions={{ padding: 0.15, minZoom: 0.3, maxZoom: 1.5 }}
               minZoom={0.1}
               maxZoom={2}
+              snapToGrid={true}
+              snapGrid={[15, 15]}
               elevateEdgesOnSelect
               elevateNodesOnSelect={false}
               defaultEdgeOptions={{
