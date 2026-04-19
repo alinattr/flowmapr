@@ -68,7 +68,24 @@ export function PromptPanel({
         body: JSON.stringify({
           prompt: prompt.trim(),
           diagramType: type,
-          existingDiagram: flowData,
+          existingDiagram: flowData ? {
+            nodes: flowData.nodes?.map((n: Record<string, unknown> & { data?: Record<string, unknown>; position?: unknown }) => ({
+              id: n.id,
+              type: n.type,
+              data: {
+                label: n.data?.label,
+                gatewayType: n.data?.gatewayType,
+                lane_id: n.data?.lane_id,
+              },
+              position: n.position,
+            })),
+            edges: flowData.edges?.map((e: Record<string, unknown>) => ({
+              id: e.id,
+              source: e.source,
+              target: e.target,
+              label: e.label,
+            })),
+          } : null,
           updateMode: true,
           existingDiagramId: diagramId,
         }),
