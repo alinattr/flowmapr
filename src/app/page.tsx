@@ -31,7 +31,7 @@ const plans = [
   },
   {
     name: 'Basic',
-    price: '$20',
+    price: '$15',
     period: '/mo',
     desc: 'For individuals who diagram regularly',
     highlight: true,
@@ -50,7 +50,7 @@ const plans = [
   },
   {
     name: 'Pro',
-    price: '$50',
+    price: '$45',
     period: '/mo',
     desc: 'For power users with full access',
     highlight: false,
@@ -464,8 +464,8 @@ export default function LandingPage() {
             url: 'https://app.flowmapr.com',
             offers: [
               { '@type': 'Offer', name: 'Free', price: '0', priceCurrency: 'USD' },
-              { '@type': 'Offer', name: 'Basic', price: '20', priceCurrency: 'USD', billingIncrement: 'month' },
-              { '@type': 'Offer', name: 'Pro', price: '50', priceCurrency: 'USD', billingIncrement: 'month' },
+              { '@type': 'Offer', name: 'Basic', price: '15', priceCurrency: 'USD', billingIncrement: 'month' },
+              { '@type': 'Offer', name: 'Pro', price: '45', priceCurrency: 'USD', billingIncrement: 'month' },
             ],
             featureList: [
               'BPMN 2.0 diagram generation',

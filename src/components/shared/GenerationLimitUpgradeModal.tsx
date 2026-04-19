@@ -134,7 +134,7 @@ export function GenerationLimitUpgradeModal({
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 6 }}>
                 <span style={{ fontSize: 36, fontWeight: 800, color: T.price, fontFamily: 'Inter, sans-serif', letterSpacing: '-0.04em' }}>
-                  $20
+                  $15
                 </span>
                 <span style={{ fontSize: 13, color: T.period, fontFamily: 'Inter, sans-serif' }}>/mo</span>
               </div>
@@ -198,7 +198,7 @@ export function GenerationLimitUpgradeModal({
               </div>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, marginBottom: 6 }}>
                 <span style={{ fontSize: 36, fontWeight: 800, color: T.price, fontFamily: 'Inter, sans-serif', letterSpacing: '-0.04em' }}>
-                  $50
+                  $45
                 </span>
                 <span style={{ fontSize: 13, color: T.period, fontFamily: 'Inter, sans-serif' }}>/mo</span>
               </div>

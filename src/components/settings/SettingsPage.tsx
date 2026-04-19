@@ -364,7 +364,7 @@ export function SettingsPage({
                         Most popular
                       </div>
                       <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                        Basic — $20/mo
+                        Basic — $15/mo
                       </p>
                       <ul className="mt-2 space-y-1 text-xs text-[var(--color-text-secondary)]">
                         <li>100 generations</li>
@@ -385,7 +385,7 @@ export function SettingsPage({
 
                   <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface-raised)] p-4">
                     <p className="text-sm font-semibold text-[var(--color-text-primary)]">
-                      Pro — $50/mo
+                      Pro — $45/mo
                     </p>
                     <ul className="mt-2 space-y-1 text-xs text-[var(--color-text-secondary)]">
                       <li>500 generations</li>
