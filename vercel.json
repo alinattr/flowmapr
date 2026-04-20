@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/reset-generations",
       "schedule": "0 0 1 * *"
+    },
+    {
+      "path": "/api/cron/limit-reached-email",
+      "schedule": "0 13 * * *"
     }
   ]
 }
