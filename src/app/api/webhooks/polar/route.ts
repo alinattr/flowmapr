@@ -375,9 +375,45 @@ export async function POST(req: Request) {
       }
       break
     }
+    case 'order.paid': {
+      const orderSubscriptionId = asString(data.subscription_id) ?? asString(data.subscriptionId)
+      const billingReason = asString(data.billing_reason)
+
+      // Only handle subscription renewals, not one-time orders
+      if (!orderSubscriptionId || billingReason !== 'subscription_cycle') {
+        console.log('[polar webhook] order.paid: skipping, not a subscription renewal')
+        break
+      }
+
+      const subscription = (data.subscription as Record<string, unknown> | undefined) ?? {}
+      const orderPeriodStart =
+        asString(subscription.current_period_start) ?? new Date().toISOString()
+      const orderPeriodEnd =
+        asString(subscription.current_period_end) ??
+        new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
+
+      const { error: orderPaidError } = await admin
+        .from('subscriptions')
+        .update({
+          generations_used: 0,
+          period_start: orderPeriodStart,
+          period_end: orderPeriodEnd,
+          status: 'active',
+        })
+        .eq('polar_subscription_id', orderSubscriptionId)
+
+      if (orderPaidError) {
+        Sentry.captureException(orderPaidError, {
+          tags: { webhook: 'polar', event: 'order.paid' },
+          extra: { subscriptionId: orderSubscriptionId },
+        })
+      } else {
+        console.log('[polar webhook] generations reset for renewal:', orderSubscriptionId)
+      }
+      break
+    }
     case 'order.created':
     case 'order.updated':
-    case 'order.paid':
     case 'order.refunded':
     case 'refund.created':
     case 'refund.updated':
