@@ -36,7 +36,11 @@ export default function ForgotPasswordPage() {
     setLoading(false)
 
     if (error) {
-      setError(error.message)
+      const userMessage =
+        error.message?.includes('Load failed') || error.message?.toLowerCase().includes('fetch')
+          ? 'Connection error. Please check your internet connection and try again.'
+          : error.message
+      setError(userMessage)
     } else {
       setSent(true)
     }
