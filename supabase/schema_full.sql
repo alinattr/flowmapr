@@ -1,4 +1,4 @@
--- Full public schema bootstrap from dev (sarsdnssnfznbybearhk)
+-- Full public schema bootstrap from dev 
 -- Idempotent where possible.
 
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
